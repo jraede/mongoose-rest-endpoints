@@ -1,6 +1,6 @@
 mongoose = require('mongoose')
 Q = require('q')
-httperror = require('httperror')
+httperror = require('./httperror')
 _ = require('underscore')
 
 class Endpoint

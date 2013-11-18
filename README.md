@@ -51,11 +51,11 @@ Finally, register it to your express app, which will set up the URL routes used 
 
 Default endpoint URLs are:
 
-*POST: {BASE_URL}
-*PUT: {BASE_URL}/{_ID}
-*GET (single): {BASE_URL}/{_ID}
-*GET (list): {BASE_URL}/list
-*DELETE: {BASE_URL}/{_ID}
+* POST: {BASE_URL}
+* PUT: {BASE_URL}/{_ID}
+* GET (single): {BASE_URL}/{_ID}
+* GET (list): {BASE_URL}/list
+* DELETE: {BASE_URL}/{_ID}
 
 If you want to add your own you can extend the base `endPoint` class and add your custom methods (and make sure you register them as well).
 

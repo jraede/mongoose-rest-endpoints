@@ -13,10 +13,11 @@ class Endpoint
 			opts = {}
 		@to_populate = if opts.populate? then opts.populate else []
 		@query_vars = if opts.query_vars? then opts.query_vars else []
+
 		@suggestion = opts.suggestion
 		@ignore = if opts.ignore? then opts.ignore else []
 
-
+		@prevent = if opts.prevent then opts.prevent else []
 		@middleware = 
 			get:[]
 			post:[]
@@ -30,7 +31,9 @@ class Endpoint
 	cleanData: (data, req) ->
 		delete data._id
 		for key,val of data
-
+			if @prevent and @prevent.indexOf(key) >= 0
+				delete data[key]
+				continue
 			if val and key.substr(0,1) is '_' and val instanceof Array
 				console.log 'cleaning data for ', key, val
 				data[key] = new Array()
@@ -155,8 +158,10 @@ class Endpoint
 		deferred = Q.defer()
 
 		filter = {}
+		console.log 'query when listing:', @query_vars
 		if @query_vars
 			for query_var in @query_vars
+				console.log 'checking query var', query_var, req.query
 				if req.query[query_var] and (_.isString(req.query[query_var]) or req.query[query_var] instanceof Date)
 					if query_var.substr(0, 4) is '$lt_'
 						filter[query_var.replace('$lt_', '')] =

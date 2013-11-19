@@ -1,6 +1,6 @@
 {
-  "name": "restgoose",
-  "version": "0.5.0",
+  "name": "mongoose-rest-endpoints",
+  "version": "0.6.0",
   "description": "Easy REST endpoint creation for Mongoose documents",
   "main": "index.js",
   "scripts": {
@@ -8,17 +8,33 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://jraede@github.com/jraede/restgoose.git"
+    "url": "https://jraede@github.com/jraede/mongoose-rest-endpoints.git"
   },
   "keywords": [
     "REST",
     "Mongoose",
     "API"
   ],
-  "author": "Jason Raede <jason@torchedm.com>",
+  "dependencies": {
+    "express": "3.4.3",
+    "mongoose": "*",
+    "q": "*",
+    "underscore": "*"
+  },
+  "author": {
+    "name": "Jason Raede",
+    "email": "jason@torchedm.com"
+  },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jraede/restgoose/issues"
+    "url": "https://github.com/jraede/mongoose-rest-endpoints/issues"
   },
-  "homepage": "https://github.com/jraede/restgoose"
+  "homepage": "https://github.com/jraede/mongoose-rest-endpoints",
+  "readme": "ERROR: No README data found!",
+  "_id": "mongoose-rest-endpoints@0.5.0",
+  "dist": {
+    "shasum": "038afeba4ade624f883a3fa5e6358795132a6921"
+  },
+  "_from": "mongoose-rest-endpoints@~0.5.0",
+  "_resolved": "https://registry.npmjs.org/mongoose-rest-endpoints/-/mongoose-rest-endpoints-0.5.0.tgz"
 }

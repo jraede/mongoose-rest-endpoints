@@ -29,13 +29,14 @@ class Endpoint
 	# Remove the _id field since we can't explicitly say that in an update request
 	#
 	cleanData: (data, req) ->
+		@cleanDataLoop++
+		
 		delete data._id
 		for key,val of data
 			if @prevent and @prevent.indexOf(key) >= 0
 				delete data[key]
 				continue
 			if val and key.substr(0,1) is '_' and val instanceof Array
-				console.log 'cleaning data for ', key, val
 				data[key] = new Array()
 				for obj in val
 					if typeof obj is 'object'
@@ -51,7 +52,7 @@ class Endpoint
 		return data
 	post:(req) ->
 		deferred = Q.defer()
-
+		@cleanDataLoop = 0
 		data = @cleanData(req.body, req)
 		model = new @modelClass(data)
 		###@handleRelations(req).then ->###
@@ -105,18 +106,15 @@ class Endpoint
 			deferred.reject(httperror.forge('ID not provided', 400))
 		else
 			# Remove ID from req body
-			console.log 'cleaning data:', req.body
+			@cleanDataLoop = 0
 			data = @cleanData(req.body, req)
-			console.log 'cleaned data', data
 			# We can't use findByIdAndUpdate because we want the pre/post middleware to be executed
 			query = @modelClass.findById(id)
-			console.log 'should be populating', @populate
 			
 
 
 			query.exec (err, model) =>
 				if err || !model
-					console.log err
 					deferred.reject(httperror.forge('Error retrieving document', 404))
 				else 
 					for key,val of data
@@ -128,13 +126,11 @@ class Endpoint
 						if @to_populate.length
 							
 							for pop in @to_populate
-								console.log 'populating', pop
 								populates.push(@populate(model, pop))
 
 						Q.all(populates).then ->
 							deferred.resolve(model)
 						, (err) ->
-							console.log err
 							deferred.reject(httperror.forge('Failure to update document', 500))
 
 		return deferred.promise
@@ -158,10 +154,8 @@ class Endpoint
 		deferred = Q.defer()
 
 		filter = {}
-		console.log 'query when listing:', @query_vars
 		if @query_vars
 			for query_var in @query_vars
-				console.log 'checking query var', query_var, req.query
 				if req.query[query_var] and (_.isString(req.query[query_var]) or req.query[query_var] instanceof Date)
 					if query_var.substr(0, 4) is '$lt_'
 						filter[query_var.replace('$lt_', '')] =
@@ -178,11 +172,14 @@ class Endpoint
 					else if query_var.substr(0,4) is '$in_'
 						filter[query_var.replace('$in_', '')] =
 							$in:req.query[query_var]
+					else if query_var.substr(0,4) is '$ne_'
+						filter[query_var.replace('$in_', '')] =
+							$ne:req.query[query_var]
 					else
 						filter[query_var]= req.query[query_var]
-				else
-					console.log 'bad query var:', query_var
+				
 		query = @modelClass.find(filter) 
+
 
 		if @to_populate.length
 			for pop in @to_populate
@@ -204,7 +201,6 @@ class Endpoint
 		return deferred.promise
 
 	getSuggestions: (req) ->
-		console.log 'getting suggestions...'
 		deferred = Q.defer()
 		if @suggestion.forgeQuery
 			params = @suggestion.forgeQuery(req)

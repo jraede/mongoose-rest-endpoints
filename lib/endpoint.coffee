@@ -96,7 +96,7 @@ class Endpoint
 			parentProp = null
 			# Look for a ref back to the parent
 			for childSchemaProp,childSchemaConfig of childSchema.paths
-				if childSchemaConfig.options.type? and childSchemaConfig.options.type is mongoose.Schema.Types.ObjectId and childSchemaConfig.options.ref.toLowerCase() is @modelClass.modelName.toLowerCase()
+				if childSchemaConfig.options.type? and childSchemaConfig.options.type is mongoose.Schema.Types.ObjectId and childSchemaConfig.options.ref? and childSchemaConfig.options.ref.toLowerCase() is @modelClass.modelName.toLowerCase()
 
 					parentProp = childSchemaProp
 					break

@@ -171,7 +171,7 @@ class Endpoint
 		parentProp = null
 		# Look for a ref back to the parent
 		for childSchemaProp,childSchemaConfig of childSchema.tree
-			if childSchemaConfig.options.type? and childSchemaConfig.options.type is mongoose.Schema.Types.ObjectId and childSchemaConfig.options.ref.toLowerCase() is @modelClass.modelName.toLowerCase()
+			if childSchemaConfig.type? and childSchemaConfig.type is mongoose.Schema.Types.ObjectId and childSchemaConfig.ref? and childSchemaConfig.ref.toLowerCase() is @modelClass.modelName.toLowerCase()
 				parentProp = childSchemaProp
 				break
 
@@ -205,12 +205,12 @@ class Endpoint
 		for prop,config of schema.tree
 			if prop.substr(0, 1) is '_' and prop isnt '_id' and prop isnt '__v'
 				# It could be an array of subdocuments
-				if config instanceof Array and config[0].type is mongoose.Schema.Types.ObjectId
+				if config instanceof Array and config[0].type is mongoose.Schema.Types.ObjectId and data[prop]? and data[prop].length
 					totalDeferreds.push(@handleRelationArray(req, prop, config))
 					
 
 				# Or maybe it's a single subdocument
-				else if config.type? and config.type is mongoose.Schema.Types.ObjectId
+				else if config.type? and config.ref? and config.type is mongoose.Schema.Types.ObjectId and data[prop]
 					totalDeferreds.push(@handleRelationObject(req, prop, config))
 
 

@@ -72,6 +72,11 @@ describe('Endpoint Test', function() {
         data.account = 'asdf';
       }
       return data;
+    }).responseHook('pre', function(next) {
+      if (this.type === 'post') {
+        this.data.type = 'POST';
+      }
+      return next();
     }).register(app);
     return app.listen(5555, function() {
       return done();
@@ -95,6 +100,9 @@ describe('Endpoint Test', function() {
   });
   it('should have passed it through the save filter', function() {
     return this.post1.account.should.equal('asdf');
+  });
+  it('should have passed it through the response hooks', function() {
+    return this.post1.type.should.equal('POST');
   });
   it('should not let you delete a post without a password', function(done) {
     return request(app).del('/api/posts/' + this.post1._id).end(function(err, response) {

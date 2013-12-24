@@ -2,7 +2,7 @@ mongoose = require('mongoose')
 Q = require('q')
 httperror = require('./httperror')
 _ = require('underscore')
-
+Response = require './response'
 class Endpoint
 
 	####
@@ -29,7 +29,12 @@ class Endpoint
 			put:[]
 			delete:[]
 
+		@dataFilters =
+			fetch:[]
+			save:[]
 		@dataFilters.fetch.push(@constructFilterFromRequest)
+
+		@responsePrototype = class CustomResponse extends Response
 
 	addFilter:(method, f) ->
 		@dataFilters[method].push(f)
@@ -56,16 +61,14 @@ class Endpoint
 						filter[query_var.replace('$in_', '')] =
 							$in:req.query[query_var]
 					else if query_var.substr(0,4) is '$ne_'
-						filter[query_var.replace('$in_', '')] =
+						filter[query_var.replace('$ne_', '')] =
 							$ne:req.query[query_var]
 					else
 						filter[query_var]= req.query[query_var]
 		return filter
 
 
-	dataFilters:
-		fetch:[]
-		save:[]
+	
 	
 	filterData:(req, method, data, isChild) ->
 		r = data
@@ -384,6 +387,9 @@ class Endpoint
 		return deferred.promise
 
 
+	responseHook:(event, callback) ->
+		@responsePrototype[event]('send', callback)
+		return @
 
 	addMiddleware:(method, middleware) ->
 		if method is 'all'
@@ -398,41 +404,48 @@ class Endpoint
 
 		return @
 
+	response: (type, res, data, code) ->
+		response = new @responsePrototype(type, res, data, code)
+		return response
 	# Register this endpoint with the express app
 	register: (app) ->
+		console.log 'Registered endpoint for path:', @path
 		if @suggestion
 			app.get @path + '/suggestion', @middleware.get, (req, res) =>
-				Q(@getSuggestions(req)).then (results) ->
-					res.send(results, 200)
-				, (error) ->
-					res.send(error.message, error.code)
+				Q(@getSuggestions(req)).then (results) =>
+					@response(res, results, 200).send()
+				, (error) =>
+					@response('SUGGESTION', res, error.message, error.code).send()
 
 		app.get @path + '/:id', @middleware.get, (req, res) =>
 			Q(@get(req)).then (results) ->
-				res.send(results, 200)
-			, (error) ->
-				res.send(error.message, error.code)
+				@response(res, results, 200).send()
+			, (error) =>
+				console.error error
+				@response('get:error', res, error.message, error.code).send()
 
 		app.get @path, @middleware.get, (req, res) =>
-			Q(@list(req)).then (results) ->
-				res.send(results, 200)
-			, (error) ->
-				res.send(error.message, error.code)
+			Q(@list(req)).then (results) =>
+				@response('list', res, results, 200).send()
+			, (error) =>
+				console.error error
+				@response('list:error', res, error.message, error.code).send()
 		app.post @path, @middleware.post, (req, res) =>
-			Q(@post(req)).then (results) ->
-				res.send(results, 201)
-			, (error) ->
-				res.send(error.message, error.code)
+			Q(@post(req)).then (results) =>
+				@response('post', res, results, 201).send()
+			, (error) =>
+				console.error error
+				@response('post:error', res, error.message, error.code).send()
 		app.put @path + '/:id', @middleware.put, (req, res) =>
-			Q(@put(req)).then (results) ->
-				res.send(results, 202)
-			, (error) ->
-				res.send(error.message, error.code)
+			Q(@put(req)).then (results) =>
+				@response('put', res, results, 202).send()
+			, (error) =>
+				@response('put:error', res, error.message, error.code).send()
 		app.delete @path + '/:id', @middleware.delete, (req, res) =>
-			Q(@delete(req)).then (results) ->
-				res.send(results, 200)
-			, (error) ->
-				res.send(error.message, error.code)
+			Q(@delete(req)).then (results) =>
+				@response('delete', res, results, 200).send()
+			, (error) =>
+				@response('delete:error', res, error.message, error.code).send()
 
 		
 

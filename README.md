@@ -37,13 +37,36 @@ var pageSchema = new mongoose.Schema({
 pageModel = mongoose.model('Page', pageSchema);
   
 
-new mongooseRestEndpoint.endpoint('/api/pages', pageModel, {
-  query_vars:['title','$gte_timestamp','$lte_timestamp'],
+new mongooseRestEndpoints.endpoint('/api/pages', 'Page', {
+  queryVars:['title','$gte_timestamp','$lte_timestamp'],
   populate:['_author']
 }).addMiddleware('post', myAuthorizationFunction()).register(app);
 ```
 
 So, you'll need to first define a Mongoose schema and register it to a document collection. Then you can register the endpoint, passing arguments for the `base url`, the `mongoose document prototype`, and then any additional data like `populate` (which object ID references to populate automatically) and `query_vars` which query variables to parse from the query string.
+
+### Available Config Options
+#### queryVars
+This defines which query vars from the query string are passed through as filters for the returned data in a GET request. If the variables in here match a schema path on your model, then they are used as `$match`. Alternatively you can prepend one of the following to the schema path, to do comparisons: 
+* `$lt_` - Less than
+* `$lte_` - Less than or equal to
+* `$gt_` - Greater than
+* `$gte_` - Greater than or equal to
+* `$in_` - Value is contained in given array
+* `$ne_` - Value is not equal to provided value.
+
+*Example*
+
+```
+new mongooseRestEndpoints.endpoint('/api/posts', 'Posts', {
+	queryVars:['author', '$in_categories']
+}).register(app);
+```
+
+
+More on the way.
+
+### Middleware
 
 Then you can register middleware functions using `addMiddleware(VERB, FUNCTION(S)`, passing either a single function or an array of functions.
 

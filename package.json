@@ -1,7 +1,7 @@
 {
   "name": "mongoose-rest-endpoints",
-  "version": "1.0.1",
-  "description": "Easy REST endpoint creation for Mongoose documents",
+  "version": "1.1",
+  "description": "Easy REST endpoint creation for Mongoose documents with Express",
   "main": "index.js",
   "scripts": {
     "test": "mocha"
@@ -19,7 +19,8 @@
     "express": "3.4.3",
     "mongoose": "*",
     "q": "*",
-    "underscore": "~1.5.2"
+    "underscore": "~1.5.2",
+    "hooks": "~0.3.2"
   },
   "author": {
     "name": "Jason Raede",

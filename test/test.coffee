@@ -43,7 +43,6 @@ app.use(express.methodOverride())
 
 
 describe 'Endpoint Test', ->
-	
 	before (done) ->
 		# clear out
 		mongoose.connection.collections.posts.drop()
@@ -61,6 +60,10 @@ describe 'Endpoint Test', ->
 			if !isChild
 				data.account = 'asdf'
 			return data
+		.responseHook 'pre', (next) ->
+			if @type is 'post'
+				@data.type = 'POST'
+			next()
 		.register(app)
 
 		app.listen 5555, ->
@@ -83,6 +86,8 @@ describe 'Endpoint Test', ->
 	it 'should have passed it through the save filter', ->
 		@post1.account.should.equal('asdf')
 
+	it 'should have passed it through the response hooks', ->
+		@post1.type.should.equal('POST')
 	it 'should not let you delete a post without a password', (done) ->
 		request(app).del('/api/posts/' + @post1._id).end (err, response) ->
 			response.status.should.equal(401)

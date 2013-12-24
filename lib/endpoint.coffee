@@ -77,7 +77,8 @@ class Endpoint
 				if typeof f isnt 'function'
 					continue
 				f = _.bind(f, @)
-				r = f(req, data, isChild)
+				r = f(req, r, isChild)
+				console.log 'ran through filter, data is:', r
 		return r
 	handleRelationArray: (req, prop, config) ->
 		deferred = Q.defer()
@@ -256,11 +257,14 @@ class Endpoint
 	get:(req) ->
 		deferred = Q.defer()
 		id = req.params.id
+		filter = 
+			_id:id
+		data = @filterData(req, 'fetch', filter)
 		if !id
 			err = httperror.forge('ID not provided', 400)
 			deferred.reject(err)
 		else
-			query = @modelClass.findById(id)
+			query = @modelClass.findOne(data)
 
 			if @to_populate.length
 				for pop in @to_populate

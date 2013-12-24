@@ -119,7 +119,7 @@ describe 'Endpoint Test', ->
 		@post2._comments[0].comment = 'Changed comment to this'
 		@post2._comments.splice(1, 1)
 		request(app).put('/api/posts/' + @post2._id).send(@post2).end (err, response) ->
-			response.status.should.equal(202)
+			response.status.should.equal(200)
 			response.body._comments.length.should.equal(1)
 			response.body._comments[0].comment.should.equal 'Changed comment to this'
 			done()
@@ -135,7 +135,7 @@ describe 'Endpoint Test', ->
 	it 'should let you do a normal put request with the ID and maintain the result', (done) ->
 		@post2._comments = [@post2._comments[0]._id]
 		request(app).put('/api/posts/' + @post2._id).send(@post2).end (err, response) =>
-			response.status.should.equal(202)
+			response.status.should.equal(200)
 			response.body._comments.length.should.equal(1)
 			response.body._comments[0].should.equal(@post2._comments[0])
 			done()
@@ -143,7 +143,7 @@ describe 'Endpoint Test', ->
 	it 'should let you delete all subdocuments', (done) ->
 		@post2._comments = []
 		request(app).put('/api/posts/' + @post2._id).send(@post2).end (err, response) ->
-			response.status.should.equal(202)
+			response.status.should.equal(200)
 			response.body._comments.length.should.equal(0)
 			done()
 	it 'should let you do greater than date requests', (done) ->

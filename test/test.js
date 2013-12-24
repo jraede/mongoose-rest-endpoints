@@ -141,7 +141,7 @@ describe('Endpoint Test', function() {
     this.post2._comments[0].comment = 'Changed comment to this';
     this.post2._comments.splice(1, 1);
     return request(app).put('/api/posts/' + this.post2._id).send(this.post2).end(function(err, response) {
-      response.status.should.equal(202);
+      response.status.should.equal(200);
       response.body._comments.length.should.equal(1);
       response.body._comments[0].comment.should.equal('Changed comment to this');
       return done();
@@ -161,7 +161,7 @@ describe('Endpoint Test', function() {
     var _this = this;
     this.post2._comments = [this.post2._comments[0]._id];
     return request(app).put('/api/posts/' + this.post2._id).send(this.post2).end(function(err, response) {
-      response.status.should.equal(202);
+      response.status.should.equal(200);
       response.body._comments.length.should.equal(1);
       response.body._comments[0].should.equal(_this.post2._comments[0]);
       return done();
@@ -170,7 +170,7 @@ describe('Endpoint Test', function() {
   it('should let you delete all subdocuments', function(done) {
     this.post2._comments = [];
     return request(app).put('/api/posts/' + this.post2._id).send(this.post2).end(function(err, response) {
-      response.status.should.equal(202);
+      response.status.should.equal(200);
       response.body._comments.length.should.equal(0);
       return done();
     });

@@ -438,7 +438,7 @@ class Endpoint
 				@response('post:error', req, res, error.message, error.code).send()
 		app.put @path + '/:id', @middleware.put, (req, res) =>
 			Q(@put(req)).then (results) =>
-				@response('put', req, res, results, 202).send()
+				@response('put', req, res, results, 200).send()
 			, (error) =>
 				@response('put:error', req, res, error.message, error.code).send()
 		app.delete @path + '/:id', @middleware.delete, (req, res) =>

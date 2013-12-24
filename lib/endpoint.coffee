@@ -404,8 +404,8 @@ class Endpoint
 
 		return @
 
-	response: (type, res, data, code) ->
-		response = new @responsePrototype(type, res, data, code)
+	response: (type, req, res, data, code) ->
+		response = new @responsePrototype(type, req, res, data, code)
 		return response
 	# Register this endpoint with the express app
 	register: (app) ->
@@ -413,39 +413,39 @@ class Endpoint
 		if @suggestion
 			app.get @path + '/suggestion', @middleware.get, (req, res) =>
 				Q(@getSuggestions(req)).then (results) =>
-					@response(res, results, 200).send()
+					@response('suggestion', req, res, results, 200).send()
 				, (error) =>
-					@response('SUGGESTION', res, error.message, error.code).send()
+					@response('suggestion:error', req, res, error.message, error.code).send()
 
 		app.get @path + '/:id', @middleware.get, (req, res) =>
 			Q(@get(req)).then (results) ->
 				@response(res, results, 200).send()
 			, (error) =>
 				console.error error
-				@response('get:error', res, error.message, error.code).send()
+				@response('get:error', req, res, error.message, error.code).send()
 
 		app.get @path, @middleware.get, (req, res) =>
 			Q(@list(req)).then (results) =>
-				@response('list', res, results, 200).send()
+				@response('list', req, res, results, 200).send()
 			, (error) =>
 				console.error error
-				@response('list:error', res, error.message, error.code).send()
+				@response('list:error', req, res, error.message, error.code).send()
 		app.post @path, @middleware.post, (req, res) =>
 			Q(@post(req)).then (results) =>
-				@response('post', res, results, 201).send()
+				@response('post', req, res, results, 201).send()
 			, (error) =>
 				console.error error
-				@response('post:error', res, error.message, error.code).send()
+				@response('post:error', req, res, error.message, error.code).send()
 		app.put @path + '/:id', @middleware.put, (req, res) =>
 			Q(@put(req)).then (results) =>
-				@response('put', res, results, 202).send()
+				@response('put', req, res, results, 202).send()
 			, (error) =>
-				@response('put:error', res, error.message, error.code).send()
+				@response('put:error', req, res, error.message, error.code).send()
 		app.delete @path + '/:id', @middleware.delete, (req, res) =>
 			Q(@delete(req)).then (results) =>
-				@response('delete', res, results, 200).send()
+				@response('delete', req, res, results, 200).send()
 			, (error) =>
-				@response('delete:error', res, error.message, error.code).send()
+				@response('delete:error', req, res, error.message, error.code).send()
 
 		
 

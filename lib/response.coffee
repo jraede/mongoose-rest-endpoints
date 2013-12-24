@@ -1,6 +1,7 @@
 hooks = require 'hooks'
 class Response
-	constructor:(type, res, data, code) ->
+	constructor:(type, req, res, data, code) ->
+		@req = req
 		@type = type
 		@res = res
 		@data = data

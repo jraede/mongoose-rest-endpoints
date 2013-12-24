@@ -78,7 +78,6 @@ class Endpoint
 					continue
 				f = _.bind(f, @)
 				r = f(req, r, isChild)
-				console.log 'ran through filter, data is:', r
 		return r
 	handleRelationArray: (req, prop, config) ->
 		deferred = Q.defer()
@@ -166,6 +165,8 @@ class Endpoint
 		return deferred.promise
 
 	handleRelationObject: (req, prop, config) ->
+		deferred = Q.defer()
+
 		subdoc = mongoose.model(config.ref)
 		childSchema = subdoc.schema
 
@@ -177,23 +178,36 @@ class Endpoint
 				break
 
 		shouldBeSaving = if _.keys(@allowRelations).indexOf(prop) >= 0 then true else false
+		child = @postData[prop]
+		if typeof child is 'string' # If it's just an id, then keep it the way it is
 
-		child = @filterData(req, 'save', child, true)
-		child = new subdoc(child)
-		replacementProp = child._id
-		@replacePropBeforeResponse[prop] = child.toObject()
-
-		if shouldBeSaving
-			child.save (err, res) =>
-				if err
-					deferred.reject(err)
-				else
-					@postData[prop] = replacementProp
-					deferred.resolve()
-		else
-			@postData[prop] = replacementProp
+			replacementProp= child
+			@replacePropBeforeResponse[prop] = child
 			deferred.resolve()
-		return deferred
+		else
+			child = @filterData(req, 'save', child, true)
+			if child._id
+				child = new subdoc child,
+					_id:false
+				child.isNew = false
+				delete child.$__.activePaths.states.modify._id
+			else
+				child = new subdoc(child)
+
+			replacementProp = child._id
+			@replacePropBeforeResponse[prop] = child.toObject()
+
+			if shouldBeSaving
+				child.save (err, res) =>
+					if err
+						deferred.reject(err)
+					else
+						@postData[prop] = replacementProp
+						deferred.resolve()
+			else
+				@postData[prop] = replacementProp
+				deferred.resolve()
+		return deferred.promise
 
 	handleRelations: (req, data) ->
 		deferred = Q.defer()
@@ -204,6 +218,7 @@ class Endpoint
 		schema = @modelClass.schema
 
 		for prop,config of schema.tree
+
 			if prop.substr(0, 1) is '_' and prop isnt '_id' and prop isnt '__v'
 				# It could be an array of subdocuments
 				if config instanceof Array and config[0].type is mongoose.Schema.Types.ObjectId and data[prop]? and data[prop].length
@@ -299,8 +314,13 @@ class Endpoint
 		else
 			# Remove ID from req body
 			data = req.body
+
+			filter =
+				_id:id
+
+			filter = @filterData(req, 'fetch', filter)
 			# We can't use findByIdAndUpdate because we want the pre/post middleware to be executed
-			query = @modelClass.findById(id)
+			query = @modelClass.findOne(filter)
 			
 
 
@@ -309,7 +329,6 @@ class Endpoint
 					deferred.reject(httperror.forge('Error retrieving document', 404))
 				else 
 					@model = model
-
 					@handleRelations(req, data).then =>
 						data = @filterData(req, 'save', @postData)
 						for key,val of data
@@ -444,6 +463,7 @@ class Endpoint
 			Q(@put(req)).then (results) =>
 				@response('put', req, res, results, 200).send()
 			, (error) =>
+				console.log 'put error'
 				@response('put:error', req, res, error.message, error.code).send()
 		app.delete @path + '/:id', @middleware.delete, (req, res) =>
 			Q(@delete(req)).then (results) =>

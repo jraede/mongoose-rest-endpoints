@@ -20,7 +20,8 @@
     "mongoose": "*",
     "q": "*",
     "underscore": "~1.5.2",
-    "hooks": "~0.3.2"
+    "hooks": "~0.3.2",
+    "dot-component": "~0.1.0"
   },
   "author": {
     "name": "Jason Raede",

@@ -3,6 +3,8 @@ Q = require('q')
 httperror = require('./httperror')
 _ = require('underscore')
 Response = require './response'
+
+dot = require 'dot-component'
 class Endpoint
 
 	####
@@ -18,7 +20,7 @@ class Endpoint
 			opts = {}
 		@to_populate = if opts.populate? then opts.populate else []
 		@queryVars = if opts.queryVars? then opts.queryVars else []
-		@allowRelations = if opts.allowRelations? then opts.allowRelations else []
+		@cascadeRelations = if opts.queryVars? then opts.queryVars else []
 		@suggestion = opts.suggestion
 		@ignore = if opts.ignore? then opts.ignore else []
 
@@ -68,8 +70,74 @@ class Endpoint
 		return filter
 
 
+	filterRelations:(req, data, isChild) ->
+		unflatten = (data) ->
+			if (Object(data)) isnt data or Array.isArray(data)
+				return data
+			result = {}
+
+			doWhile = (func, condition) ->
+				func()
+				func() while condition()
+
+			for key,val of data
+				cur = result
+				prop = ''
+				last = 0
+				idx = 0
+				doWhile ->
+					idx = p.indexOf('.', last)
+					n = if idx isnt -1 then idx else undefined
+					temp = p.substring(last, n)
+					cur = 
+				
+
+
+		if (Object(data) !== data || Array.isArray(data))
+		        return data;
+		    var result = {}, cur, prop, idx, last, temp;
+		    for(var p in data) {
+		        cur = result, prop = "", last = 0;
+		        do {
+		            idx = p.indexOf(".", last);
+		            temp = p.substring(last, idx !== -1 ? idx : undefined);
+		            cur = cur[prop] || (cur[prop] = (!isNaN(parseInt(temp)) ? [] : {}));
+		            prop = temp;
+		            last = idx + 1;
+		        } while(idx >= 0);
+		        cur[prop] = data[p];
+		    }
+		    return result[""];
+		if @cascadeRelations.length and data._related
+			#Flatten, clear unwanted, unflatten
+			flat = @flattenDataToPaths(data._related)
+			keep = {}
+			for rel in @cascadeRelations
+				if flat[rel]?
+					keep[rel] = flat[rel]
+			data._related = unflatten(keep)
+		else
+			return data
 	
+	flattenDataToPaths:(data) ->
+		paths = _.keys(@modelClass.paths)
+		res = {}
+		recurse = (obj, current) ->
+			for key,val of obj
+				if paths.indexOf(key) >= 0
+					res[key] = val
+				else
+					newKey = if current then current + '.' + key else key
+					if val? and typeof value is 'object'
+						recurse(val, newKey)
+					else
+						console.error 'Invalid value for path:', current, val
+		recurse(data)
+		return res
+		
 	
+	filterRelationAtPath:(path, data) ->
+
 	filterData:(req, method, data, isChild) ->
 		r = data
 		if @dataFilters[method].length
@@ -79,195 +147,31 @@ class Endpoint
 				f = _.bind(f, @)
 				r = f(req, r, isChild)
 		return r
-	handleRelationArray: (req, prop, config) ->
-		deferred = Q.defer()
-
-		replacementProp = []
-		@replacePropBeforeResponse[prop] = []
-		saves = []
-		subdoc = mongoose.model(config[0].ref)
-
-
-		if @postData[prop] instanceof Array
-			childSchema = subdoc.schema
-
-			
-
-			parentProp = null
-			# Look for a ref back to the parent
-			for childSchemaProp,childSchemaConfig of childSchema.paths
-				if childSchemaConfig.options.type? and childSchemaConfig.options.type is mongoose.Schema.Types.ObjectId and childSchemaConfig.options.ref? and childSchemaConfig.options.ref.toLowerCase() is @modelClass.modelName.toLowerCase()
-
-					parentProp = childSchemaProp
-					break
-
-			# If this is a PUT request, we need to also find out which subdocuments to remove!
-			previousChildren = []
-			if !@model.isNew
-				previousChildren = @model[prop]
-			shouldBeSaving = if _.keys(@allowRelations).indexOf(prop) >= 0 then true else false
-			for child in @postData[prop]
-				if typeof child is 'string' # If it's just a straight up array, then keep it the way it is
-					index = previousChildren.indexOf(child)
-					if index >= 0
-						previousChildren.splice(index, 1)
-					replacementProp.push(child)
-					@replacePropBeforeResponse[prop].push(child)
-					continue
-				# It's new, create it. Otherwise, retrieve it from the database
-				child = @filterData(req, 'save', child, true)
-				if child._id
-					child = new subdoc child,
-						_id:false
-					child.isNew = false
-					delete child.$__.activePaths.states.modify._id
-				else
-					child = new subdoc(child)
-
-				index = previousChildren.indexOf(child._id)
-				if index >= 0
-					previousChildren.splice(index, 1)
-				@replacePropBeforeResponse[prop].push(child.toObject())
-				replacementProp.push(child._id)
-				if shouldBeSaving
-					# Now, if the child schema has a ref back to the parent, fill that in also
-					if parentProp
-						child[parentProp] = @model._id
-
-					saves.push child.save (err, result) ->
-						if err
-							console.error 'Failed to save child doc'
-
-
-
-
-			if shouldBeSaving
-				# We need to also deleted all the ones that are no longer in use
-				if previousChildren.length and @allowRelations[prop].deleteUnattached?
-					for childId in previousChildren
-						saves.push mongoose.model(config[0].ref).findByIdAndRemove childId, (err, results) ->
-							if err
-								console.error 'Failed to delete unattached child doc'
-					
-				Q.all(saves).then =>
-					@postData[prop] = replacementProp
-					deferred.resolve()
-				, (err) ->
-					deferred.reject(err)
-			else
-				@postData[prop] = replacementProp
-				deferred.resolve()
-
-
-		else
-			deferred.resolve()
-
-		return deferred.promise
-
-	handleRelationObject: (req, prop, config) ->
-		deferred = Q.defer()
-
-		subdoc = mongoose.model(config.ref)
-		childSchema = subdoc.schema
-
-		parentProp = null
-		# Look for a ref back to the parent
-		for childSchemaProp,childSchemaConfig of childSchema.tree
-			if childSchemaConfig.type? and childSchemaConfig.type is mongoose.Schema.Types.ObjectId and childSchemaConfig.ref? and childSchemaConfig.ref.toLowerCase() is @modelClass.modelName.toLowerCase()
-				parentProp = childSchemaProp
-				break
-
-		shouldBeSaving = if _.keys(@allowRelations).indexOf(prop) >= 0 then true else false
-		child = @postData[prop]
-		if typeof child is 'string' # If it's just an id, then keep it the way it is
-
-			replacementProp= child
-			@replacePropBeforeResponse[prop] = child
-			deferred.resolve()
-		else
-			child = @filterData(req, 'save', child, true)
-			if child._id
-				child = new subdoc child,
-					_id:false
-				child.isNew = false
-				delete child.$__.activePaths.states.modify._id
-			else
-				child = new subdoc(child)
-
-			replacementProp = child._id
-			@replacePropBeforeResponse[prop] = child.toObject()
-
-			if shouldBeSaving
-				child.save (err, res) =>
-					if err
-						deferred.reject(err)
-					else
-						@postData[prop] = replacementProp
-						deferred.resolve()
-			else
-				@postData[prop] = replacementProp
-				deferred.resolve()
-		return deferred.promise
-
-	handleRelations: (req, data) ->
-		deferred = Q.defer()
-
-		@postData = data
-		totalDeferreds = []
-		# If the model has any child documents that (a) start with "_" and (b) the type is ObjectId, then process those if they came in
-		schema = @modelClass.schema
-
-		for prop,config of schema.tree
-
-			if prop.substr(0, 1) is '_' and prop isnt '_id' and prop isnt '__v'
-				# It could be an array of subdocuments
-				if config instanceof Array and config[0].type is mongoose.Schema.Types.ObjectId and data[prop]? and data[prop].length
-					totalDeferreds.push(@handleRelationArray(req, prop, config))
-					
-
-				# Or maybe it's a single subdocument
-				else if config.type? and config.ref? and config.type is mongoose.Schema.Types.ObjectId and data[prop]
-					totalDeferreds.push(@handleRelationObject(req, prop, config))
-
-
-
-		Q.all(totalDeferreds).then ->
-			deferred.resolve()
-		, (err) ->
-			deferred.reject(err)
-
-		return deferred.promise
-					
-
-	replacePropBeforeResponse: {}
-	repopulate: (returnVal)->
-		for prop, val of @replacePropBeforeResponse
-			returnVal[prop] = val
-
-		# Cleanup
-		@replacePropBeforeResponse = {}
-		return returnVal
+	
 
 	post:(req) ->
 		deferred = Q.defer()
 		data = req.body
 		@model = new @modelClass()
 
-		@handleRelations(req, data).then =>
-			data = @filterData(req, 'save', @postData)
-			for key,val of data
-				@model[key] = val
-			@model.save (err) =>
-				if err
-					console.error err
-					deferred.reject(httperror.forge('Failure to create document', 400))
-				else
-					returnVal = @model.toObject()
-					returnVal = @repopulate(returnVal)
-					deferred.resolve(returnVal)
-			, (err) ->
+		data = @filterData(req, 'save', @postData)
+		@model.set(data)
+
+		if @cascadeRelations.length and @model.cascadeSave?
+			method = 'cascadeSave'
+		else
+			method = 'save'
+		@model[method] (err) =>
+			if err
 				console.error err
 				deferred.reject(httperror.forge('Failure to create document', 400))
+			else
+				returnVal = @model.toObject()
+				returnVal = @repopulate(returnVal)
+				deferred.resolve(returnVal)
+		, (err) ->
+			console.error err
+			deferred.reject(httperror.forge('Failure to create document', 400))
 		return deferred.promise
 	get:(req) ->
 		deferred = Q.defer()

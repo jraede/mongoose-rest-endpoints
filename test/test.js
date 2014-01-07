@@ -19,7 +19,8 @@ commentSchema = new mongoose.Schema({
   _author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Author'
-  }
+  },
+  account: String
 });
 
 postSchema = new mongoose.Schema({
@@ -81,11 +82,13 @@ describe('Endpoint Test', function() {
     new endpoint('/api/posts', 'Post', {
       populate: ['_comments'],
       cascadeRelations: ['_comments'],
-      queryVars: ['$gt_date', '$lt_date', 'number']
-    }).addMiddleware('delete', requirePassword('password')).addFilter('save', function(req, data, isChild) {
-      if (!isChild) {
+      relationsFilter: function(data, path) {
         data.account = 'asdf';
-      }
+        return data;
+      },
+      queryVars: ['$gt_date', '$lt_date', 'number']
+    }).addMiddleware('delete', requirePassword('password')).addFilter('save', function(req, data) {
+      data.account = 'asdf';
       return data;
     }).responseHook('pre', function(next) {
       if (this.type === 'post') {
@@ -106,6 +109,7 @@ describe('Endpoint Test', function() {
       string: 'Test',
       _comments: []
     }).end(function(err, response) {
+      console.log('RESPONSE TEXT:', response.text);
       response.status.should.equal(201);
       response.body.number.should.equal(111);
       response.body.string.should.equal('Test');
@@ -156,6 +160,10 @@ describe('Endpoint Test', function() {
       should.not.exist(res.body._related._comments._author);
       return done();
     });
+  });
+  it('should have applied filters to relations', function(done) {
+    this.post2._related._comments[0].account.should.equal('asdf');
+    return done();
   });
   it('should return populated comments when listing posts', function(done) {
     var _this = this;

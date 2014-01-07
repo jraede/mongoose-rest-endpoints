@@ -15,6 +15,7 @@ commentSchema = new mongoose.Schema
 	_author:
 		type:mongoose.Schema.Types.ObjectId
 		ref:'Author'
+	account:String
 
 
 postSchema = new mongoose.Schema
@@ -67,11 +68,13 @@ describe 'Endpoint Test', ->
 		new endpoint '/api/posts', 'Post',
 			populate:['_comments']
 			cascadeRelations:['_comments']
+			relationsFilter: (data, path) ->
+				data.account = 'asdf'
+				return data
 			queryVars:['$gt_date', '$lt_date', 'number']
 		.addMiddleware('delete', requirePassword('password'))
-		.addFilter 'save', (req, data, isChild) ->
-			if !isChild
-				data.account = 'asdf'
+		.addFilter 'save', (req, data) ->
+			data.account = 'asdf'
 			return data
 		.responseHook 'pre', (next) ->
 			if @type is 'post'
@@ -92,6 +95,7 @@ describe 'Endpoint Test', ->
 			string:'Test'
 			_comments:[]
 		.end (err, response) =>
+			console.log 'RESPONSE TEXT:', response.text
 			response.status.should.equal(201)
 			response.body.number.should.equal(111)
 			response.body.string.should.equal('Test')
@@ -135,6 +139,10 @@ describe 'Endpoint Test', ->
 			res.body._comments.length.should.equal(1)
 			should.not.exist(res.body._related._comments._author)
 			done()
+
+	it 'should have applied filters to relations', (done) ->
+		@post2._related._comments[0].account.should.equal('asdf')
+		done()
 
 	it 'should return populated comments when listing posts', (done) ->
 		request(app).get('/api/posts').end (err, response) =>

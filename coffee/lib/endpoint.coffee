@@ -21,6 +21,7 @@ class Endpoint
 		@to_populate = if opts.populate? then opts.populate else []
 		@queryVars = if opts.queryVars? then opts.queryVars else []
 		@cascadeRelations = if opts.cascadeRelations? then opts.cascadeRelations else []
+		@relationsFilter = opts.relationsFilter
 		@suggestion = opts.suggestion
 		@ignore = if opts.ignore? then opts.ignore else []
 
@@ -36,13 +37,16 @@ class Endpoint
 			save:[]
 		@dataFilters.fetch.push(@constructFilterFromRequest)
 
+
+
 		@responsePrototype = class CustomResponse extends Response
 
 	addFilter:(method, f) ->
 		@dataFilters[method].push(f)
 		return @
 
-	constructFilterFromRequest:(req, data, isChild) ->
+	
+	constructFilterFromRequest:(req, data) ->
 		filter = {}
 		if @queryVars
 			for query_var in @queryVars
@@ -72,14 +76,14 @@ class Endpoint
 
 	
 
-	filterData:(req, method, data, isChild) ->
+	filterData:(req, method, data) ->
 		r = data
 		if @dataFilters[method].length
 			for f in @dataFilters[method]
 				if typeof f isnt 'function'
 					continue
 				f = _.bind(f, @)
-				r = f(req, r, isChild)
+				r = f(req, r)
 		return r
 	
 
@@ -99,7 +103,9 @@ class Endpoint
 				else
 					returnVal = @model.toObject()
 					deferred.resolve(returnVal)
-			, @cascadeRelations
+			, 
+				limit:@cascadeRelations
+				filter:@relationsFilter
 		else
 			@model.save (err) =>
 				if err
@@ -181,7 +187,9 @@ class Endpoint
 								return deferred.reject(err)
 							returnVal = model.toObject()
 							deferred.resolve(returnVal)
-						, @cascadeRelations
+						, 
+							limit:@cascadeRelations
+							filter:@relationsFilter
 					else
 						@model.save (err, model) =>
 							if err

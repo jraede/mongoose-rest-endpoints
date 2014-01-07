@@ -1,4 +1,4 @@
-var app, commentSchema, endpoint, express, mongoose, postSchema, request, requirePassword, should;
+var app, authorSchema, cascade, commentSchema, endpoint, express, mongoose, postSchema, request, requirePassword, should;
 
 express = require('express');
 
@@ -15,6 +15,10 @@ commentSchema = new mongoose.Schema({
   _post: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Post'
+  },
+  _author: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Author'
   }
 });
 
@@ -25,10 +29,15 @@ postSchema = new mongoose.Schema({
   _comments: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Comment'
+      ref: 'Comment',
+      $through: '_post'
     }
   ],
   account: String
+});
+
+authorSchema = new mongoose.Schema({
+  name: 'String'
 });
 
 requirePassword = function(password) {
@@ -43,9 +52,19 @@ requirePassword = function(password) {
 
 mongoose.connect('mongodb://localhost/mre_test');
 
+cascade = require('cascading-relations');
+
+postSchema.plugin(cascade);
+
+commentSchema.plugin(cascade);
+
+authorSchema.plugin(cascade);
+
 mongoose.model('Post', postSchema);
 
 mongoose.model('Comment', commentSchema);
+
+mongoose.model('Author', authorSchema);
 
 mongoose.set('debug', true);
 
@@ -61,11 +80,7 @@ describe('Endpoint Test', function() {
     mongoose.connection.collections.comments.drop();
     new endpoint('/api/posts', 'Post', {
       populate: ['_comments'],
-      allowRelations: {
-        _comments: {
-          deleteUnattached: true
-        }
-      },
+      cascadeRelations: ['_comments'],
       queryVars: ['$gt_date', '$lt_date', 'number']
     }).addMiddleware('delete', requirePassword('password')).addFilter('save', function(req, data, isChild) {
       if (!isChild) {
@@ -78,6 +93,7 @@ describe('Endpoint Test', function() {
       }
       return next();
     }).register(app);
+    new endpoint('/api/posts2', 'Post').register(app);
     return app.listen(5555, function() {
       return done();
     });
@@ -116,34 +132,28 @@ describe('Endpoint Test', function() {
       return done();
     });
   });
-  it('should let you post related documents, insert them into their own collection, and return with them populated', function(done) {
+  it('should save related and honor the cascadeRelations config', function(done) {
     var _this = this;
     return request(app).post('/api/posts').send({
       date: new Date(),
       number: 111,
       string: 'Test',
-      _comments: [
-        {
-          comment: 'This is comment 1'
-        }, {
-          comment: 'This is comment 2'
-        }
-      ]
-    }).end(function(err, response) {
-      response.status.should.equal(201);
-      response.body._comments.length.should.equal(2);
-      response.body._comments[0]._id.length.should.be.greaterThan(10);
-      _this.post2 = response.body;
-      return done();
-    });
-  });
-  it('should let you modify a comment and save the entire thing', function(done) {
-    this.post2._comments[0].comment = 'Changed comment to this';
-    this.post2._comments.splice(1, 1);
-    return request(app).put('/api/posts/' + this.post2._id).send(this.post2).end(function(err, response) {
-      response.status.should.equal(200);
-      response.body._comments.length.should.equal(1);
-      response.body._comments[0].comment.should.equal('Changed comment to this');
+      _related: {
+        _comments: [
+          {
+            comment: 'This is a comment',
+            _related: {
+              _author: {
+                name: 'Foo McFooterson'
+              }
+            }
+          }
+        ]
+      }
+    }).end(function(err, res) {
+      _this.post2 = res.body;
+      res.body._comments.length.should.equal(1);
+      should.not.exist(res.body._related._comments._author);
       return done();
     });
   });
@@ -152,26 +162,8 @@ describe('Endpoint Test', function() {
     return request(app).get('/api/posts').end(function(err, response) {
       response.status.should.equal(200);
       response.body.length.should.equal(1);
-      response.body[0]._comments[0].comment.should.equal('Changed comment to this');
-      response.body[0]._comments[0]._post.should.equal(_this.post2._id);
-      return done();
-    });
-  });
-  it('should let you do a normal put request with the ID and maintain the result', function(done) {
-    var _this = this;
-    this.post2._comments = [this.post2._comments[0]._id];
-    return request(app).put('/api/posts/' + this.post2._id).send(this.post2).end(function(err, response) {
-      response.status.should.equal(200);
-      response.body._comments.length.should.equal(1);
-      response.body._comments[0].should.equal(_this.post2._comments[0]);
-      return done();
-    });
-  });
-  it('should let you delete all subdocuments', function(done) {
-    this.post2._comments = [];
-    return request(app).put('/api/posts/' + this.post2._id).send(this.post2).end(function(err, response) {
-      response.status.should.equal(200);
-      response.body._comments.length.should.equal(0);
+      response.body[0]._related._comments[0].comment.should.equal('This is a comment');
+      response.body[0]._related._comments[0]._post.should.equal(_this.post2._id);
       return done();
     });
   });
@@ -199,7 +191,7 @@ describe('Endpoint Test', function() {
       return done();
     });
   });
-  return it('should let you do straight match requests', function(done) {
+  it('should let you do straight match requests', function(done) {
     return request(app).get('/api/posts').query({
       number: 110
     }).end(function(err, response) {
@@ -212,6 +204,25 @@ describe('Endpoint Test', function() {
         response.body.length.should.equal(1);
         return done();
       });
+    });
+  });
+  it('should save a model with no relations set', function(done) {
+    var _this = this;
+    return request(app).post('/api/posts2').send({
+      date: new Date(),
+      number: 111,
+      string: 'Test'
+    }).end(function(err, res) {
+      res.status.should.equal(201);
+      _this.regpost = res.body;
+      return done();
+    });
+  });
+  return it('should be able to put a model with no relations set', function(done) {
+    this.regpost.string = 'Test1';
+    return request(app).put('/api/posts2/' + this.regpost._id).send(this.regpost).end(function(err, res) {
+      res.status.should.equal(200);
+      return done();
     });
   });
 });

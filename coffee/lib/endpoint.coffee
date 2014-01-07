@@ -20,7 +20,7 @@ class Endpoint
 			opts = {}
 		@to_populate = if opts.populate? then opts.populate else []
 		@queryVars = if opts.queryVars? then opts.queryVars else []
-		@cascadeRelations = if opts.queryVars? then opts.queryVars else []
+		@cascadeRelations = if opts.cascadeRelations? then opts.cascadeRelations else []
 		@suggestion = opts.suggestion
 		@ignore = if opts.ignore? then opts.ignore else []
 
@@ -70,73 +70,7 @@ class Endpoint
 		return filter
 
 
-	filterRelations:(req, data, isChild) ->
-		unflatten = (data) ->
-			if (Object(data)) isnt data or Array.isArray(data)
-				return data
-			result = {}
-
-			doWhile = (func, condition) ->
-				func()
-				func() while condition()
-
-			for key,val of data
-				cur = result
-				prop = ''
-				last = 0
-				idx = 0
-				doWhile ->
-					idx = p.indexOf('.', last)
-					n = if idx isnt -1 then idx else undefined
-					temp = p.substring(last, n)
-					cur = 
-				
-
-
-		if (Object(data) !== data || Array.isArray(data))
-		        return data;
-		    var result = {}, cur, prop, idx, last, temp;
-		    for(var p in data) {
-		        cur = result, prop = "", last = 0;
-		        do {
-		            idx = p.indexOf(".", last);
-		            temp = p.substring(last, idx !== -1 ? idx : undefined);
-		            cur = cur[prop] || (cur[prop] = (!isNaN(parseInt(temp)) ? [] : {}));
-		            prop = temp;
-		            last = idx + 1;
-		        } while(idx >= 0);
-		        cur[prop] = data[p];
-		    }
-		    return result[""];
-		if @cascadeRelations.length and data._related
-			#Flatten, clear unwanted, unflatten
-			flat = @flattenDataToPaths(data._related)
-			keep = {}
-			for rel in @cascadeRelations
-				if flat[rel]?
-					keep[rel] = flat[rel]
-			data._related = unflatten(keep)
-		else
-			return data
 	
-	flattenDataToPaths:(data) ->
-		paths = _.keys(@modelClass.paths)
-		res = {}
-		recurse = (obj, current) ->
-			for key,val of obj
-				if paths.indexOf(key) >= 0
-					res[key] = val
-				else
-					newKey = if current then current + '.' + key else key
-					if val? and typeof value is 'object'
-						recurse(val, newKey)
-					else
-						console.error 'Invalid value for path:', current, val
-		recurse(data)
-		return res
-		
-	
-	filterRelationAtPath:(path, data) ->
 
 	filterData:(req, method, data, isChild) ->
 		r = data
@@ -154,24 +88,26 @@ class Endpoint
 		data = req.body
 		@model = new @modelClass()
 
-		data = @filterData(req, 'save', @postData)
+		data = @filterData(req, 'save', data)
 		@model.set(data)
 
 		if @cascadeRelations.length and @model.cascadeSave?
-			method = 'cascadeSave'
+			@model.cascadeSave (err) =>
+				if err
+					console.error err
+					deferred.reject(httperror.forge('Failure to create document', 400))
+				else
+					returnVal = @model.toObject()
+					deferred.resolve(returnVal)
+			, @cascadeRelations
 		else
-			method = 'save'
-		@model[method] (err) =>
-			if err
-				console.error err
-				deferred.reject(httperror.forge('Failure to create document', 400))
-			else
-				returnVal = @model.toObject()
-				returnVal = @repopulate(returnVal)
-				deferred.resolve(returnVal)
-		, (err) ->
-			console.error err
-			deferred.reject(httperror.forge('Failure to create document', 400))
+			@model.save (err) =>
+				if err
+					console.error err
+					deferred.reject(httperror.forge('Failure to create document', 400))
+				else
+					returnVal = @model.toObject()
+					deferred.resolve(returnVal)
 		return deferred.promise
 	get:(req) ->
 		deferred = Q.defer()
@@ -233,17 +169,27 @@ class Endpoint
 					deferred.reject(httperror.forge('Error retrieving document', 404))
 				else 
 					@model = model
-					@handleRelations(req, data).then =>
-						data = @filterData(req, 'save', @postData)
-						for key,val of data
-							if key isnt '_id' and key isnt '__v'
-								@model[key] = val
-						@model.save (err, model) =>
+					data = @filterData(req, 'save', data)
+					delete data['_id']
+					delete data['__v']
+					@model.set(data)
+
+
+					if @cascadeRelations.length and @model.cascadeSave?
+						@model.cascadeSave (err, model) =>
+							if err
+								return deferred.reject(err)
 							returnVal = model.toObject()
-							returnVal = @repopulate(returnVal)
 							deferred.resolve(returnVal)
-					, (err) ->
-						deferred.reject(httperror.forge('Error saving document', 500))
+						, @cascadeRelations
+					else
+						@model.save (err, model) =>
+							if err
+								return deferred.reject(err)
+							returnVal = model.toObject()
+							deferred.resolve(returnVal)
+						
+					
 
 		return deferred.promise
 				

@@ -12,6 +12,9 @@ commentSchema = new mongoose.Schema
 	_post:
 		type:mongoose.Schema.Types.ObjectId
 		ref:'Post'
+	_author:
+		type:mongoose.Schema.Types.ObjectId
+		ref:'Author'
 
 
 postSchema = new mongoose.Schema
@@ -21,8 +24,12 @@ postSchema = new mongoose.Schema
 	_comments:[
 			type:mongoose.Schema.Types.ObjectId
 			ref:'Comment'
+			$through:'_post'
 	]
 	account:String
+
+authorSchema = new mongoose.Schema
+	name:'String'
 
 # Custom middleware for testing
 requirePassword = (password) ->
@@ -32,8 +39,16 @@ requirePassword = (password) ->
 		else
 			res.send(401)
 mongoose.connect('mongodb://localhost/mre_test')
+
+cascade = require 'cascading-relations'
+postSchema.plugin(cascade)
+commentSchema.plugin(cascade)
+authorSchema.plugin(cascade)
+
 mongoose.model('Post', postSchema)
 mongoose.model('Comment', commentSchema)
+mongoose.model('Author', authorSchema)
+
 mongoose.set 'debug', true
 
 app = express()
@@ -51,9 +66,7 @@ describe 'Endpoint Test', ->
 
 		new endpoint '/api/posts', 'Post',
 			populate:['_comments']
-			allowRelations:
-				_comments:
-					deleteUnattached:true
+			cascadeRelations:['_comments']
 			queryVars:['$gt_date', '$lt_date', 'number']
 		.addMiddleware('delete', requirePassword('password'))
 		.addFilter 'save', (req, data, isChild) ->
@@ -65,6 +78,8 @@ describe 'Endpoint Test', ->
 				@data.type = 'POST'
 			next()
 		.register(app)
+
+		new endpoint('/api/posts2', 'Post').register(app)
 
 		app.listen 5555, ->
 
@@ -97,54 +112,36 @@ describe 'Endpoint Test', ->
 			response.status.should.equal(200)
 			done()
 
-	it 'should let you post related documents, insert them into their own collection, and return with them populated', (done) ->
+
+
+
+	
+
+	it 'should save related and honor the cascadeRelations config', (done) ->
 		request(app).post('/api/posts').send
-			date: new Date()
+			date:new Date()
 			number:111
 			string:'Test'
-			_comments:[
-					comment:'This is comment 1'
-				,
-					comment: 'This is comment 2'
-			]
-		.end (err, response) =>
-			response.status.should.equal(201)
-			response.body._comments.length.should.equal(2)
-			response.body._comments[0]._id.length.should.be.greaterThan(10)
-
-			@post2 = response.body
-			done()
-
-	it 'should let you modify a comment and save the entire thing', (done) ->
-		@post2._comments[0].comment = 'Changed comment to this'
-		@post2._comments.splice(1, 1)
-		request(app).put('/api/posts/' + @post2._id).send(@post2).end (err, response) ->
-			response.status.should.equal(200)
-			response.body._comments.length.should.equal(1)
-			response.body._comments[0].comment.should.equal 'Changed comment to this'
+			_related:
+				_comments:[
+						comment:'This is a comment'
+						_related:
+							_author:
+								name:'Foo McFooterson'
+				]
+		.end (err, res) =>
+			@post2 = res.body
+			# Should have saved the comment but not the author
+			res.body._comments.length.should.equal(1)
+			should.not.exist(res.body._related._comments._author)
 			done()
 
 	it 'should return populated comments when listing posts', (done) ->
 		request(app).get('/api/posts').end (err, response) =>
 			response.status.should.equal(200)
 			response.body.length.should.equal(1)
-			response.body[0]._comments[0].comment.should.equal 'Changed comment to this'
-			response.body[0]._comments[0]._post.should.equal @post2._id
-			done()
-
-	it 'should let you do a normal put request with the ID and maintain the result', (done) ->
-		@post2._comments = [@post2._comments[0]._id]
-		request(app).put('/api/posts/' + @post2._id).send(@post2).end (err, response) =>
-			response.status.should.equal(200)
-			response.body._comments.length.should.equal(1)
-			response.body._comments[0].should.equal(@post2._comments[0])
-			done()
-
-	it 'should let you delete all subdocuments', (done) ->
-		@post2._comments = []
-		request(app).put('/api/posts/' + @post2._id).send(@post2).end (err, response) ->
-			response.status.should.equal(200)
-			response.body._comments.length.should.equal(0)
+			response.body[0]._related._comments[0].comment.should.equal 'This is a comment'
+			response.body[0]._related._comments[0]._post.should.equal @post2._id
 			done()
 	it 'should let you do greater than date requests', (done) ->
 		nextYear = new Date()
@@ -179,5 +176,21 @@ describe 'Endpoint Test', ->
 				response.status.should.equal(200)
 				response.body.length.should.equal(1)
 				done()
+
+	it 'should save a model with no relations set', (done) ->
+		request(app).post('/api/posts2').send
+			date:new Date()
+			number:111
+			string:'Test'
+		.end (err, res) =>
+			res.status.should.equal(201)
+			@regpost = res.body
+			done()
+
+	it 'should be able to put a model with no relations set', (done) ->
+		@regpost.string = 'Test1'
+		request(app).put('/api/posts2/' + @regpost._id).send(@regpost).end (err, res) ->
+			res.status.should.equal(200)
+			done()
 
 

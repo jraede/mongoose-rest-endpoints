@@ -10,7 +10,7 @@ class Response
 		if @data
 			@res.send(@data, @code)
 		else if @code
-			@res.send(@code)
+			@res.send(@code, @data)
 		else
 			@res.send(null)
 			

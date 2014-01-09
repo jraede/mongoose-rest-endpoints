@@ -26,7 +26,10 @@ commentSchema = new mongoose.Schema({
 postSchema = new mongoose.Schema({
   date: Date,
   number: Number,
-  string: String,
+  string: {
+    type: String,
+    required: true
+  },
   _comments: [
     {
       type: mongoose.Schema.Types.ObjectId,
@@ -226,10 +229,29 @@ describe('Endpoint Test', function() {
       return done();
     });
   });
-  return it('should be able to put a model with no relations set', function(done) {
+  it('should be able to put a model with no relations set', function(done) {
     this.regpost.string = 'Test1';
     return request(app).put('/api/posts2/' + this.regpost._id).send(this.regpost).end(function(err, res) {
       res.status.should.equal(200);
+      return done();
+    });
+  });
+  it('should pass through the validation errors when there is a 400 level error', function(done) {
+    var _this = this;
+    return request(app).post('/api/posts').send({
+      date: new Date(),
+      number: 111
+    }).end(function(err, res) {
+      res.status.should.equal(400);
+      res.body.message.should.equal('Validation failed');
+      return done();
+    });
+  });
+  return it('should display validation errors on PUT request', function(done) {
+    this.regpost.string = null;
+    return request(app).put('/api/posts2/' + this.regpost._id).send(this.regpost).end(function(err, res) {
+      res.status.should.equal(400);
+      res.body.message.should.equal('Validation failed');
       return done();
     });
   });

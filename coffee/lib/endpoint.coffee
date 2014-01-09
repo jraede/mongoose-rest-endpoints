@@ -99,7 +99,7 @@ class Endpoint
 			@model.cascadeSave (err) =>
 				if err
 					console.error err
-					deferred.reject(httperror.forge('Failure to create document', 400))
+					deferred.reject(httperror.forge(err, 400))
 				else
 					returnVal = @model.toObject()
 					deferred.resolve(returnVal)
@@ -110,7 +110,7 @@ class Endpoint
 			@model.save (err) =>
 				if err
 					console.error err
-					deferred.reject(httperror.forge('Failure to create document', 400))
+					deferred.reject(httperror.forge(err, 400))
 				else
 					returnVal = @model.toObject()
 					deferred.resolve(returnVal)
@@ -184,7 +184,7 @@ class Endpoint
 					if @cascadeRelations.length and @model.cascadeSave?
 						@model.cascadeSave (err, model) =>
 							if err
-								return deferred.reject(err)
+								return deferred.reject(httperror.forge(err, 400))
 							returnVal = model.toObject()
 							deferred.resolve(returnVal)
 						, 
@@ -193,7 +193,7 @@ class Endpoint
 					else
 						@model.save (err, model) =>
 							if err
-								return deferred.reject(err)
+								return deferred.reject(httperror.forge(err, 400))
 							returnVal = model.toObject()
 							deferred.resolve(returnVal)
 						
@@ -315,13 +315,11 @@ class Endpoint
 			Q(@post(req)).then (results) =>
 				@response('post', req, res, results, 201).send()
 			, (error) =>
-				console.error error
 				@response('post:error', req, res, error.message, error.code).send()
 		app.put @path + '/:id', @middleware.put, (req, res) =>
 			Q(@put(req)).then (results) =>
 				@response('put', req, res, results, 200).send()
 			, (error) =>
-				console.log 'put error'
 				@response('put:error', req, res, error.message, error.code).send()
 		app.delete @path + '/:id', @middleware.delete, (req, res) =>
 			Q(@delete(req)).then (results) =>

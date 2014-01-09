@@ -21,7 +21,9 @@ commentSchema = new mongoose.Schema
 postSchema = new mongoose.Schema
 	date:Date
 	number:Number
-	string:String
+	string:
+		type:String
+		required:true
 	_comments:[
 			type:mongoose.Schema.Types.ObjectId
 			ref:'Comment'
@@ -200,5 +202,24 @@ describe 'Endpoint Test', ->
 		request(app).put('/api/posts2/' + @regpost._id).send(@regpost).end (err, res) ->
 			res.status.should.equal(200)
 			done()
+
+	it 'should pass through the validation errors when there is a 400 level error', (done) ->
+		request(app).post('/api/posts').send
+			date:new Date()
+			number:111
+			
+		.end (err, res) =>
+			res.status.should.equal(400)
+			res.body.message.should.equal('Validation failed')
+			done()
+
+	it 'should display validation errors on PUT request', (done) ->
+		@regpost.string = null
+		request(app).put('/api/posts2/' + @regpost._id).send(@regpost).end (err, res) ->
+			res.status.should.equal(400)
+			res.body.message.should.equal('Validation failed')
+			done()
+
+
 
 

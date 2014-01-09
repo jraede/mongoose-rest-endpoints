@@ -1,13 +1,13 @@
-module.exports = class HttpError extends Error
+module.exports = class HttpError
 	@forge:(msg, code) ->
 		if @listeners[code]?
 			for listener in @listeners[code]
 				listener(msg)
-		return new @(msg, null, null, code)
-	constructor:(msg, fileName, lineNumber, code) ->
+		return new @(msg, code)
+	constructor:(msg, code) ->
 		@code = code
+		@message = msg
 
-		super
 	@listeners:{}
 	@listen:(code, callback) ->
 		if !@listeners[code]?

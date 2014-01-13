@@ -44,6 +44,15 @@ requirePassword = (password) ->
 mongoose.connect('mongodb://localhost/mre_test')
 
 cascade = require 'cascading-relations'
+
+postSchema.post 'remove', ->
+	# Just do something that we'd see, like creating an author
+	modelClass = mongoose.model('Author')
+	author = new modelClass
+		name:'Deleted Post'
+
+	author.save()
+
 postSchema.plugin(cascade)
 commentSchema.plugin(cascade)
 authorSchema.plugin(cascade)
@@ -85,7 +94,9 @@ describe 'Endpoint Test', ->
 		.register(app)
 
 		new endpoint('/api/posts2', 'Post').register(app)
-
+		new endpoint '/api/authors', 'Author',
+			queryVars:['name']
+		.register(app)
 		app.listen 5555, ->
 
 			done()
@@ -117,6 +128,15 @@ describe 'Endpoint Test', ->
 		request(app).del('/api/posts/' + @post1._id + '?password=password').end (err, response) ->
 			response.status.should.equal(200)
 			done()
+
+	it 'should have executed remove middleware', (done) ->
+		# Wait a few seconds for post delete to run since
+		setTimeout =>
+			request(app).get('/api/authors').query
+				name:'Deleted Post'
+			.end (err, response) ->
+				response.body.length.should.equal(1)
+				done()
 
 
 

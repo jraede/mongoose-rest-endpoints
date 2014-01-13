@@ -58,6 +58,15 @@ mongoose.connect('mongodb://localhost/mre_test');
 
 cascade = require('cascading-relations');
 
+postSchema.post('remove', function() {
+  var author, modelClass;
+  modelClass = mongoose.model('Author');
+  author = new modelClass({
+    name: 'Deleted Post'
+  });
+  return author.save();
+});
+
 postSchema.plugin(cascade);
 
 commentSchema.plugin(cascade);
@@ -100,6 +109,9 @@ describe('Endpoint Test', function() {
       return next();
     }).register(app);
     new endpoint('/api/posts2', 'Post').register(app);
+    new endpoint('/api/authors', 'Author', {
+      queryVars: ['name']
+    }).register(app);
     return app.listen(5555, function() {
       return done();
     });
@@ -137,6 +149,17 @@ describe('Endpoint Test', function() {
     return request(app).del('/api/posts/' + this.post1._id + '?password=password').end(function(err, response) {
       response.status.should.equal(200);
       return done();
+    });
+  });
+  it('should have executed remove middleware', function(done) {
+    var _this = this;
+    return setTimeout(function() {
+      return request(app).get('/api/authors').query({
+        name: 'Deleted Post'
+      }).end(function(err, response) {
+        response.body.length.should.equal(1);
+        return done();
+      });
     });
   });
   it('should save related and honor the cascadeRelations config', function(done) {

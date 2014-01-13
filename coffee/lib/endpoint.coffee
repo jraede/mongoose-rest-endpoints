@@ -208,13 +208,18 @@ class Endpoint
 		if !id
 			deferred.reject(httperror.forge('ID not provided', 400))
 		else
-			@modelClass.findByIdAndRemove id, (err, model) ->
+			@modelClass.findById id, (err, model) ->
+				if !model
+					return deferred.reject(httperror.forge('Document not found', 404))
 				if err
-					deferred.reject(httperror.forge('Error deleting document', 500))
-				else if !model
-					deferred.reject(httperror.forge('Document not found', 404))
-				else
-					deferred.resolve()
+					return deferred.reject(httperror.forge('Error deleting document', 500))
+				model.remove (err) ->
+
+					if err
+						deferred.reject(httperror.forge('Error deleting document', 500))
+					else
+						deferred.resolve()
+			
 		return deferred.promise
 	list:(req) ->
 		deferred = Q.defer()

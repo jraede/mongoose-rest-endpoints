@@ -118,9 +118,9 @@ class Endpoint
 	get:(req) ->
 		deferred = Q.defer()
 		id = req.params.id
-		filter = 
-			_id:id
-		data = @filterData(req, 'fetch', filter)
+
+		data = @filterData(req, 'fetch', {})
+		filter._id = id
 		if !id
 			err = httperror.forge('ID not provided', 400)
 			deferred.reject(err)
@@ -161,10 +161,10 @@ class Endpoint
 			# Remove ID from req body
 			data = req.body
 
-			filter =
-				_id:id
 
-			filter = @filterData(req, 'fetch', filter)
+
+			filter = @filterData(req, 'fetch', {})
+			filter._id = id
 			# We can't use findByIdAndUpdate because we want the pre/post middleware to be executed
 			query = @modelClass.findOne(filter)
 			

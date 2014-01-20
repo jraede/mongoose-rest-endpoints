@@ -120,7 +120,7 @@ class Endpoint
 		id = req.params.id
 
 		data = @filterData(req, 'fetch', {})
-		filter._id = id
+		data._id = id
 		if !id
 			err = httperror.forge('ID not provided', 400)
 			deferred.reject(err)

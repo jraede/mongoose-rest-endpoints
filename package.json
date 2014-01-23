@@ -4,7 +4,7 @@
   "description": "Easy REST endpoint creation for Mongoose documents with Express",
   "main": "index.js",
   "scripts": {
-    "test": "mocha"
+    "test": "grunt test:all"
   },
   "repository": {
     "type": "git",
@@ -36,7 +36,7 @@
   "devDependencies": {
     "supertest": "~0.8.2",
     "should": "~2.1.1",
-    "cascading-relations": "~0.7.0",
+    "cascading-relations": "~0.7.3",
     "grunt": "~0.4.2",
     "grunt-contrib-coffee": "~0.8.0",
     "grunt-contrib-watch": "~0.5.3",
@@ -44,7 +44,5 @@
     "grunt-sed": "~0.1.1",
     "semver": "~2.2.1",
     "moment": "~2.5.1"
-  },
-  "_id": "mongoose-rest-endpoints@2.0.0",
-  "_from": "mongoose-rest-endpoints@~2.0.0"
+  }
 }

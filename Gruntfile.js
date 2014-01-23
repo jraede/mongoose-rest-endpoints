@@ -2,8 +2,9 @@
 var f, semver;
 
 semver = require('semver');
+var f = require('util').format;
+var fs = require('fs');
 
-f = require('util').format;
 module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-contrib-watch');
 	grunt.loadNpmTasks('grunt-exec');
@@ -19,7 +20,9 @@ module.exports = function(grunt) {
 		},
 		exec:{
 			test: {
-				cmd:'NODE_ENV=test mocha'
+				cmd:function(ex) {
+					return f('NODE_ENV=test mocha %s', ex)
+				}
 			}
 		},
 		coffee: {
@@ -58,5 +61,24 @@ module.exports = function(grunt) {
 		});
 	});
 
-	grunt.registerTask('test', ['dropTestDb', 'exec:test']);
+	grunt.registerTask('test', 'Run tests', function(type) {
+		var tasks = []
+		switch(type) {
+
+			case 'all':
+				var files = fs.readdirSync('test');
+				var file;
+				for(var i=0;i<files.length;i++) {
+					file = files[i];
+						tasks.push('exec:test:"test/' + file + '"')
+						tasks.push('dropTestDb')
+				}
+				//tasks = ['exec:test:"test/unit/*.js"']
+				break;
+			default:
+				tasks = ['exec:test:"test/' + type + '.js"', 'dropTestDb']
+				break;
+		}
+		grunt.task.run(tasks);
+	});
 };

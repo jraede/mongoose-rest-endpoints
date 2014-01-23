@@ -1,6 +1,6 @@
 {
   "name": "mongoose-rest-endpoints",
-  "version": "2.0.6",
+  "version": "2.1.0",
   "description": "Easy REST endpoint creation for Mongoose documents with Express",
   "main": "index.js",
   "scripts": {
@@ -42,7 +42,8 @@
     "grunt-contrib-watch": "~0.5.3",
     "grunt-exec": "~0.4.3",
     "grunt-sed": "~0.1.1",
-    "semver": "~2.2.1"
+    "semver": "~2.2.1",
+    "moment": "~2.5.1"
   },
   "_id": "mongoose-rest-endpoints@2.0.0",
   "_from": "mongoose-rest-endpoints@~2.0.0"

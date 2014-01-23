@@ -25,6 +25,12 @@ class Endpoint
 		@suggestion = opts.suggestion
 		@ignore = if opts.ignore? then opts.ignore else []
 
+		if opts.pagination
+			@pagination = opts.pagination
+
+
+
+			
 		@prevent = if opts.prevent then opts.prevent else []
 		@middleware = 
 			get:[]
@@ -44,6 +50,23 @@ class Endpoint
 	addFilter:(method, f) ->
 		@dataFilters[method].push(f)
 		return @
+
+	getPaginationConfig:(req) ->
+		data = req.query
+
+		result = 
+			perPage:data.perPage
+			page:data.page
+			sortField:data.sortField
+		result.page = parseInt(data.page)
+		if !result.page? or isNaN(result.page) or result.page < 1
+			result.page = 1
+		if !result.perPage?
+			result.perPage = @pagination.defaults.perPage
+		if !result.sortField?
+			result.sortField = @pagination.defaults.sortField
+
+		return result
 
 	
 	constructFilterFromRequest:(req, data) ->
@@ -221,7 +244,7 @@ class Endpoint
 						deferred.resolve()
 			
 		return deferred.promise
-	list:(req) ->
+	list:(req, res) ->
 		deferred = Q.defer()
 
 		filter = @filterData(req, 'fetch')
@@ -233,18 +256,40 @@ class Endpoint
 			for pop in @to_populate
 				query.populate(pop)
 
+		if @pagination
+			# Get total
+			@modelClass.count filter, (err, count) =>
+				if err
+					return deferred.reject(htperror.forge('Could not retrieve collection', 500))
 
-		query.exec (err, collection) =>
-			if @ignore.length
-				for obj,key in collection
-					obj = obj.toObject()
-					for field in @ignore
-						delete obj[field]
-					collection[key] = obj
-			if err
-				deferred.reject(httperror.forge('Could not retrieve collection', 500))
-			else
-				deferred.resolve(collection)
+				res.setHeader('Record-Count', count.toString())
+
+
+				config = @getPaginationConfig(req)
+				query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage).exec (err, collection) =>
+					if @ignore.length
+						for obj,key in collection
+							obj = obj.toObject()
+							for field in @ignore
+								delete obj[field]
+							collection[key] = obj
+					if err
+						deferred.reject(httperror.forge('Could not retrieve collection', 500))
+					else
+						deferred.resolve(collection)
+		else
+
+			query.exec (err, collection) =>
+				if @ignore.length
+					for obj,key in collection
+						obj = obj.toObject()
+						for field in @ignore
+							delete obj[field]
+						collection[key] = obj
+				if err
+					deferred.reject(httperror.forge('Could not retrieve collection', 500))
+				else
+					deferred.resolve(collection)
 
 		return deferred.promise
 
@@ -311,7 +356,7 @@ class Endpoint
 				@response('get:error', req, res, error.message, error.code).send()
 
 		app.get @path, @middleware.get, (req, res) =>
-			Q(@list(req)).then (results) =>
+			Q(@list(req, res)).then (results) =>
 				@response('list', req, res, results, 200).send()
 			, (error) =>
 				console.error error

@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/jraede/mongoose-rest-endpoints.png?branch=master)](https://travis-ci.org/jraede/mongoose-rest-endpoints)
+
 mongoose-rest-endpoints
 =======================
 

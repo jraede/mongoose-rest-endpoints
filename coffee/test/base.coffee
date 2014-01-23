@@ -120,6 +120,13 @@ describe 'Endpoint Test', ->
 
 	it 'should have passed it through the response hooks', ->
 		@post1.type.should.equal('POST')
+
+	it 'should give you post info on get', (done) ->
+		request(app).get('/api/posts/' + @post1._id).end (err, res) ->
+			res.status.should.equal(200)
+			res.body.number.should.equal(111)
+			res.body.string.should.equal('Test')
+			done()
 	it 'should not let you delete a post without a password', (done) ->
 		request(app).del('/api/posts/' + @post1._id).end (err, response) ->
 			response.status.should.equal(401)
@@ -137,6 +144,7 @@ describe 'Endpoint Test', ->
 			.end (err, response) ->
 				response.body.length.should.equal(1)
 				done()
+		, 1000
 
 
 

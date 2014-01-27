@@ -139,6 +139,14 @@ describe('Endpoint Test', function() {
   it('should have passed it through the response hooks', function() {
     return this.post1.type.should.equal('POST');
   });
+  it('should give you post info on get', function(done) {
+    return request(app).get('/api/posts/' + this.post1._id).end(function(err, res) {
+      res.status.should.equal(200);
+      res.body.number.should.equal(111);
+      res.body.string.should.equal('Test');
+      return done();
+    });
+  });
   it('should not let you delete a post without a password', function(done) {
     return request(app).del('/api/posts/' + this.post1._id).end(function(err, response) {
       response.status.should.equal(401);
@@ -160,7 +168,7 @@ describe('Endpoint Test', function() {
         response.body.length.should.equal(1);
         return done();
       });
-    });
+    }, 1000);
   });
   it('should save related and honor the cascadeRelations config', function(done) {
     var _this = this;

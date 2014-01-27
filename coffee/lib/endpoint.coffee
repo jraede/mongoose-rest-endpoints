@@ -349,8 +349,8 @@ class Endpoint
 					@response('suggestion:error', req, res, error.message, error.code).send()
 
 		app.get @path + '/:id', @middleware.get, (req, res) =>
-			Q(@get(req)).then (results) ->
-				@response(res, results, 200).send()
+			Q(@get(req)).then (results) =>
+				@response('get',req,res, results, 200).send()
 			, (error) =>
 				console.error error
 				@response('get:error', req, res, error.message, error.code).send()

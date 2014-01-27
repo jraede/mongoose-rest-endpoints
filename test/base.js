@@ -225,6 +225,19 @@ describe('Endpoint Test', function() {
       return done();
     });
   });
+  it('should let you do a greater than and less than request together and combine them accurately', function(done) {
+    var nextYear;
+    nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    return request(app).get('/api/posts').query({
+      $lt_date: nextYear,
+      $gt_date: nextYear
+    }).end(function(err, response) {
+      response.status.should.equal(200);
+      response.body.length.should.equal(0);
+      return done();
+    });
+  });
   it('should let you do straight match requests', function(done) {
     return request(app).get('/api/posts').query({
       number: 110

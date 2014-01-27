@@ -70,28 +70,28 @@ class Endpoint
 
 	
 	constructFilterFromRequest:(req, data) ->
+		addToFilter = (filter, prop, key, val) ->
+			if filter[prop]?
+				filter[prop][key] = val
+			else
+				filter[prop] = {}
+				filter[prop][key] = val
 		filter = {}
 		if @queryVars
 			for query_var in @queryVars
 				if req.query[query_var] and (_.isString(req.query[query_var]) or req.query[query_var] instanceof Date)
 					if query_var.substr(0, 4) is '$lt_'
-						filter[query_var.replace('$lt_', '')] =
-							$lt:req.query[query_var]
+						addToFilter(filter, query_var.replace('$lt_', ''), '$lt', req.query[query_var])
 					else if query_var.substr(0, 5) is '$lte_'
-						filter[query_var.replace('$lte_', '')] =
-							$lte:req.query[query_var]
+						addToFilter(filter, query_var.replace('$lte_', ''), '$lte', req.query[query_var])
 					else if query_var.substr(0, 4) is '$gt_'
-						filter[query_var.replace('$gt_', '')] =
-							$gt:req.query[query_var]
+						addToFilter(filter, query_var.replace('$gt_', ''), '$gt', req.query[query_var])
 					else if query_var.substr(0, 5) is '$gte_'
-						filter[query_var.replace('$gte_', '')] = 
-							$gte:req.query[query_var]
+						addToFilter(filter, query_var.replace('$gte_', ''), '$gte', req.query[query_var])
 					else if query_var.substr(0,4) is '$in_'
-						filter[query_var.replace('$in_', '')] =
-							$in:req.query[query_var]
+						addToFilter(filter, query_var.replace('$in_', ''), '$in', req.query[query_var])
 					else if query_var.substr(0,4) is '$ne_'
-						filter[query_var.replace('$ne_', '')] =
-							$ne:req.query[query_var]
+						addToFilter(filter, query_var.replace('$ne_', ''), '$ne', req.query[query_var])
 					else
 						filter[query_var]= req.query[query_var]
 		return filter

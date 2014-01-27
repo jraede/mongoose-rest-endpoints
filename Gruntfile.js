@@ -62,7 +62,7 @@ module.exports = function(grunt) {
 	});
 
 	grunt.registerTask('test', 'Run tests', function(type) {
-		var tasks = []
+		var tasks = ['dropTestDb']
 		switch(type) {
 
 			case 'all':
@@ -76,7 +76,7 @@ module.exports = function(grunt) {
 				//tasks = ['exec:test:"test/unit/*.js"']
 				break;
 			default:
-				tasks = ['exec:test:"test/' + type + '.js"', 'dropTestDb']
+				tasks = ['dropTestDb', 'exec:test:"test/' + type + '.js"', 'dropTestDb']
 				break;
 		}
 		grunt.task.run(tasks);

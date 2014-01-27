@@ -192,7 +192,18 @@ describe 'Endpoint Test', ->
 			response.status.should.equal(200)
 			response.body.length.should.equal(0)
 			done()
+	it 'should let you do a greater than and less than request together and combine them accurately', (done) ->
+		nextYear = new Date()
+		nextYear.setFullYear(nextYear.getFullYear() + 1)
+		request(app).get('/api/posts').query
+			$lt_date:nextYear
+			$gt_date:nextYear
+			
 
+		.end (err, response) ->
+			response.status.should.equal(200)
+			response.body.length.should.equal(0)
+			done()
 	it 'should let you do straight match requests', (done) ->
 		request(app).get('/api/posts').query
 			number:110

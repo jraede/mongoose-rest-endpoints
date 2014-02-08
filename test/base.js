@@ -1,10 +1,12 @@
-var app, authorSchema, cascade, commentSchema, endpoint, express, mongoose, postSchema, request, requirePassword, should;
+var Q, app, authorSchema, cascade, commentSchema, endpoint, express, mongoose, postSchema, request, requirePassword, should;
 
 express = require('express');
 
 request = require('supertest');
 
 should = require('should');
+
+Q = require('q');
 
 mongoose = require('mongoose');
 
@@ -107,6 +109,24 @@ describe('Endpoint Test', function() {
         this.data.type = 'POST';
       }
       return next();
+    }).check('update', function(req, model) {
+      var deferred;
+      deferred = Q.defer();
+      if (req.query.stop_update != null) {
+        deferred.reject();
+      } else {
+        deferred.resolve();
+      }
+      return deferred.promise;
+    }).check('delete', function(req, model) {
+      var deferred;
+      deferred = Q.defer();
+      if (req.query.stop_delete) {
+        deferred.reject();
+      } else {
+        deferred.resolve();
+      }
+      return deferred.promise;
     }).register(app);
     new endpoint('/api/posts2', 'Post').register(app);
     new endpoint('/api/authors', 'Author', {
@@ -147,9 +167,25 @@ describe('Endpoint Test', function() {
       return done();
     });
   });
+  it('should run the update check', function(done) {
+    return request(app).put('/api/posts/' + this.post1._id).query({
+      stop_update: true
+    }).end(function(err, res) {
+      res.status.should.equal(403);
+      return done();
+    });
+  });
   it('should not let you delete a post without a password', function(done) {
     return request(app).del('/api/posts/' + this.post1._id).end(function(err, response) {
       response.status.should.equal(401);
+      return done();
+    });
+  });
+  it('should run the delete check', function(done) {
+    return request(app).del('/api/posts/' + this.post1._id + '?password=password').query({
+      stop_delete: true
+    }).end(function(err, res) {
+      res.status.should.equal(403);
       return done();
     });
   });

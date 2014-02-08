@@ -1,6 +1,7 @@
 express = require 'express'
 request = require 'supertest'
 should = require 'should'
+Q = require 'q'
 
 mongoose = require 'mongoose'
 
@@ -91,6 +92,20 @@ describe 'Endpoint Test', ->
 			if @type is 'post'
 				@data.type = 'POST'
 			next()
+		.check 'update', (req, model) ->
+			deferred = Q.defer()
+			if req.query.stop_update? 
+				deferred.reject()
+			else
+				deferred.resolve()
+			return deferred.promise
+		.check 'delete', (req, model) ->
+			deferred = Q.defer()
+			if req.query.stop_delete
+				deferred.reject()
+			else
+				deferred.resolve()
+			return deferred.promise
 		.register(app)
 
 		new endpoint('/api/posts2', 'Post').register(app)
@@ -127,14 +142,29 @@ describe 'Endpoint Test', ->
 			res.body.number.should.equal(111)
 			res.body.string.should.equal('Test')
 			done()
+
+	it 'should run the update check', (done) ->
+		request(app).put('/api/posts/' + @post1._id).query
+			stop_update:true
+		.end (err, res) ->
+			res.status.should.equal(403)
+			done()
 	it 'should not let you delete a post without a password', (done) ->
 		request(app).del('/api/posts/' + @post1._id).end (err, response) ->
 			response.status.should.equal(401)
+			done()
+
+	it 'should run the delete check', (done) ->
+		request(app).del('/api/posts/' + @post1._id + '?password=password').query
+			stop_delete:true
+		.end (err, res) ->
+			res.status.should.equal(403)
 			done()
 	it 'should let you delete a post with a password', (done) ->
 		request(app).del('/api/posts/' + @post1._id + '?password=password').end (err, response) ->
 			response.status.should.equal(200)
 			done()
+
 
 	it 'should have executed remove middleware', (done) ->
 		# Wait a few seconds for post delete to run since

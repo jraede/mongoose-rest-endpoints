@@ -30,7 +30,10 @@ class Endpoint
 
 
 
-			
+		@checks =
+			update:null
+			delete:null
+
 		@prevent = if opts.prevent then opts.prevent else []
 		@middleware = 
 			get:[]
@@ -47,6 +50,9 @@ class Endpoint
 
 		@responsePrototype = class CustomResponse extends Response
 
+	check:(method, f) ->
+		@checks[method] = f
+		return @
 	addFilter:(method, f) ->
 		@dataFilters[method].push(f)
 		return @
@@ -197,53 +203,70 @@ class Endpoint
 				if err || !model
 					deferred.reject(httperror.forge('Error retrieving document', 404))
 				else 
-					@model = model
-					data = @filterData(req, 'save', data)
-					delete data['_id']
-					delete data['__v']
-					@model.set(data)
+					if @checks['update']?
+						@checks['update'](req, model).then =>
+							@finishPut(req, model, data, deferred)
+						, (err) ->
+							deferred.reject(httperror.forge('Cannot put', 403))
 
-
-					if @cascadeRelations.length and @model.cascadeSave?
-						@model.cascadeSave (err, model) =>
-							if err
-								return deferred.reject(httperror.forge(err, 400))
-							returnVal = model.toObject()
-							deferred.resolve(returnVal)
-						, 
-							limit:@cascadeRelations
-							filter:@relationsFilter
 					else
-						@model.save (err, model) =>
-							if err
-								return deferred.reject(httperror.forge(err, 400))
-							returnVal = model.toObject()
-							deferred.resolve(returnVal)
+						@finishPut(req, model, data, deferred)
+
 						
 					
 
 		return deferred.promise
 				
-	
+	finishPut:(req, model, data, deferred) ->
+		@model = model
+		data = @filterData(req, 'save', data)
+		delete data['_id']
+		delete data['__v']
+		@model.set(data)
+
+
+		if @cascadeRelations.length and @model.cascadeSave?
+			@model.cascadeSave (err, model) =>
+				if err
+					return deferred.reject(httperror.forge(err, 400))
+				returnVal = model.toObject()
+				deferred.resolve(returnVal)
+			, 
+				limit:@cascadeRelations
+				filter:@relationsFilter
+		else
+			@model.save (err, model) =>
+				if err
+					return deferred.reject(httperror.forge(err, 400))
+				returnVal = model.toObject()
+				deferred.resolve(returnVal)
 	delete:(req) ->
 		deferred = Q.defer()
 		id = req.params.id
 		if !id
 			deferred.reject(httperror.forge('ID not provided', 400))
 		else
-			@modelClass.findById id, (err, model) ->
+			@modelClass.findById id, (err, model) =>
 				if !model
 					return deferred.reject(httperror.forge('Document not found', 404))
 				if err
 					return deferred.reject(httperror.forge('Error deleting document', 500))
-				model.remove (err) ->
-
-					if err
-						deferred.reject(httperror.forge('Error deleting document', 500))
-					else
-						deferred.resolve()
+				if @checks['delete']?
+					@checks['delete'](req, model).then =>
+						@finishDelete(model, deferred)
+					, (err) ->
+						deferred.reject(httperror.forge('No access', 403))
+				else
+					@finishDelete(model, deferred)
 			
 		return deferred.promise
+	finishDelete:(model, deferred) ->
+		model.remove (err) ->
+
+			if err
+				deferred.reject(httperror.forge('Error deleting document', 500))
+			else
+				deferred.resolve()
 	list:(req, res) ->
 		deferred = Q.defer()
 

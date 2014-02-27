@@ -30,7 +30,10 @@ class Endpoint
 
 
 
-			
+		@checks =
+			update:null
+			delete:null
+
 		@prevent = if opts.prevent then opts.prevent else []
 		@middleware = 
 			get:[]
@@ -47,6 +50,9 @@ class Endpoint
 
 		@responsePrototype = class CustomResponse extends Response
 
+	check:(method, f) ->
+		@checks[method] = f
+		return @
 	addFilter:(method, f) ->
 		@dataFilters[method].push(f)
 		return @
@@ -70,28 +76,28 @@ class Endpoint
 
 	
 	constructFilterFromRequest:(req, data) ->
+		addToFilter = (filter, prop, key, val) ->
+			if filter[prop]?
+				filter[prop][key] = val
+			else
+				filter[prop] = {}
+				filter[prop][key] = val
 		filter = {}
 		if @queryVars
 			for query_var in @queryVars
 				if req.query[query_var] and (_.isString(req.query[query_var]) or req.query[query_var] instanceof Date)
 					if query_var.substr(0, 4) is '$lt_'
-						filter[query_var.replace('$lt_', '')] =
-							$lt:req.query[query_var]
+						addToFilter(filter, query_var.replace('$lt_', ''), '$lt', req.query[query_var])
 					else if query_var.substr(0, 5) is '$lte_'
-						filter[query_var.replace('$lte_', '')] =
-							$lte:req.query[query_var]
+						addToFilter(filter, query_var.replace('$lte_', ''), '$lte', req.query[query_var])
 					else if query_var.substr(0, 4) is '$gt_'
-						filter[query_var.replace('$gt_', '')] =
-							$gt:req.query[query_var]
+						addToFilter(filter, query_var.replace('$gt_', ''), '$gt', req.query[query_var])
 					else if query_var.substr(0, 5) is '$gte_'
-						filter[query_var.replace('$gte_', '')] = 
-							$gte:req.query[query_var]
+						addToFilter(filter, query_var.replace('$gte_', ''), '$gte', req.query[query_var])
 					else if query_var.substr(0,4) is '$in_'
-						filter[query_var.replace('$in_', '')] =
-							$in:req.query[query_var]
+						addToFilter(filter, query_var.replace('$in_', ''), '$in', req.query[query_var])
 					else if query_var.substr(0,4) is '$ne_'
-						filter[query_var.replace('$ne_', '')] =
-							$ne:req.query[query_var]
+						addToFilter(filter, query_var.replace('$ne_', ''), '$ne', req.query[query_var])
 					else
 						filter[query_var]= req.query[query_var]
 		return filter
@@ -197,53 +203,70 @@ class Endpoint
 				if err || !model
 					deferred.reject(httperror.forge('Error retrieving document', 404))
 				else 
-					model = model
-					data = @filterData(req, 'save', data)
-					delete data['_id']
-					delete data['__v']
-					model.set(data)
 
+					if @checks['update']?
+						@checks['update'](req, model).then =>
+							@finishPut(req, model, data, deferred)
+						, (err) ->
+							deferred.reject(httperror.forge('Cannot put', 403))
 
-					if @cascadeRelations.length and model.cascadeSave?
-						model.cascadeSave (err, model) =>
-							if err
-								return deferred.reject(httperror.forge(err, 400))
-							returnVal = model.toObject()
-							deferred.resolve(returnVal)
-						, 
-							limit:@cascadeRelations
-							filter:@relationsFilter
 					else
-						model.save (err, model) =>
-							if err
-								return deferred.reject(httperror.forge(err, 400))
-							returnVal = model.toObject()
-							deferred.resolve(returnVal)
+						@finishPut(req, model, data, deferred)
+
 						
 					
 
 		return deferred.promise
 				
-	
+	finishPut:(req, model, data, deferred) ->
+		data = @filterData(req, 'save', data)
+		delete data['_id']
+		delete data['__v']
+		model.set(data)
+
+
+		if @cascadeRelations.length and model.cascadeSave?
+			model.cascadeSave (err, model) =>
+				if err
+					return deferred.reject(httperror.forge(err, 400))
+				returnVal = model.toObject()
+				deferred.resolve(returnVal)
+			, 
+				limit:@cascadeRelations
+				filter:@relationsFilter
+		else
+			model.save (err, model) =>
+				if err
+					return deferred.reject(httperror.forge(err, 400))
+				returnVal = model.toObject()
+				deferred.resolve(returnVal)
 	delete:(req) ->
 		deferred = Q.defer()
 		id = req.params.id
 		if !id
 			deferred.reject(httperror.forge('ID not provided', 400))
 		else
-			@modelClass.findById id, (err, model) ->
+			@modelClass.findById id, (err, model) =>
 				if !model
 					return deferred.reject(httperror.forge('Document not found', 404))
 				if err
 					return deferred.reject(httperror.forge('Error deleting document', 500))
-				model.remove (err) ->
-
-					if err
-						deferred.reject(httperror.forge('Error deleting document', 500))
-					else
-						deferred.resolve()
+				if @checks['delete']?
+					@checks['delete'](req, model).then =>
+						@finishDelete(model, deferred)
+					, (err) ->
+						deferred.reject(httperror.forge('No access', 403))
+				else
+					@finishDelete(model, deferred)
 			
 		return deferred.promise
+	finishDelete:(model, deferred) ->
+		model.remove (err) ->
+
+			if err
+				deferred.reject(httperror.forge('Error deleting document', 500))
+			else
+				deferred.resolve()
 	list:(req, res) ->
 		deferred = Q.defer()
 

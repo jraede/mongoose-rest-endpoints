@@ -5,6 +5,15 @@ _ = require('underscore')
 Response = require './response'
 
 dot = require 'dot-component'
+
+
+###
+HOOKS:
+	middleware (before even reaching the method [auth, etc])
+	pre_filter (before execution [default values, remove fields, etc])
+	post_retrieve (after retrieval of the model [maybe they can only do something if the model has a certain value])
+	post_save (after execution, before response [hide fields, modify, etc])
+###
 class Endpoint
 
 	####
@@ -49,6 +58,20 @@ class Endpoint
 
 
 		@responsePrototype = class CustomResponse extends Response
+
+	taps:{}
+	tap:(hook, method, func) ->
+		if method is '*'
+			methods = ['fetch','list','create','update','delete']
+		else
+			methods = [method]
+
+		if !taps[hook]
+			taps[hook] = {}
+		for method in methods
+			if !taps[hook][method]
+				taps[hook][method] = []
+			taps[hook][method].push(func)
 
 	check:(method, f) ->
 		@checks[method] = f

@@ -142,29 +142,29 @@ class Endpoint
 	post:(req) ->
 		deferred = Q.defer()
 		data = req.body
-		@model = new @modelClass()
+		model = new @modelClass()
 
 		data = @filterData(req, 'save', data)
-		@model.set(data)
+		model.set(data)
 
-		if @cascadeRelations.length and @model.cascadeSave?
-			@model.cascadeSave (err) =>
+		if @cascadeRelations.length and model.cascadeSave?
+			model.cascadeSave (err, model) =>
 				if err
 					console.error err
 					deferred.reject(httperror.forge(err, 400))
 				else
-					returnVal = @model.toObject()
+					returnVal = model.toObject()
 					deferred.resolve(returnVal)
 			, 
 				limit:@cascadeRelations
 				filter:@relationsFilter
 		else
-			@model.save (err) =>
+			model.save (err, model) =>
 				if err
 					console.error err
 					deferred.reject(httperror.forge(err, 400))
 				else
-					returnVal = @model.toObject()
+					returnVal = model.toObject()
 					deferred.resolve(returnVal)
 		return deferred.promise
 	get:(req) ->
@@ -226,6 +226,7 @@ class Endpoint
 				if err || !model
 					deferred.reject(httperror.forge('Error retrieving document', 404))
 				else 
+
 					if @checks['update']?
 						@checks['update'](req, model).then =>
 							@finishPut(req, model, data, deferred)
@@ -241,15 +242,14 @@ class Endpoint
 		return deferred.promise
 				
 	finishPut:(req, model, data, deferred) ->
-		@model = model
 		data = @filterData(req, 'save', data)
 		delete data['_id']
 		delete data['__v']
-		@model.set(data)
+		model.set(data)
 
 
-		if @cascadeRelations.length and @model.cascadeSave?
-			@model.cascadeSave (err, model) =>
+		if @cascadeRelations.length and model.cascadeSave?
+			model.cascadeSave (err, model) =>
 				if err
 					return deferred.reject(httperror.forge(err, 400))
 				returnVal = model.toObject()
@@ -258,7 +258,7 @@ class Endpoint
 				limit:@cascadeRelations
 				filter:@relationsFilter
 		else
-			@model.save (err, model) =>
+			model.save (err, model) =>
 				if err
 					return deferred.reject(httperror.forge(err, 400))
 				returnVal = model.toObject()

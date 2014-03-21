@@ -8,11 +8,11 @@ dot = require 'dot-component'
 
 
 ###
+Middle ware is separate
 HOOKS:
-	middleware (before even reaching the method [auth, etc])
 	pre_filter (before execution [default values, remove fields, etc])
 	post_retrieve (after retrieval of the model [maybe they can only do something if the model has a certain value])
-	post_save (after execution, before response [hide fields, modify, etc])
+	pre_response (after execution, before response [hide fields, modify, etc])
 ###
 class Endpoint
 
@@ -24,63 +24,192 @@ class Endpoint
 	constructor:(path, modelId, opts) ->
 		@path = path
 		@modelId = modelId
-		@modelClass = mongoose.model(modelId)
-		if !opts?
-			opts = {}
-		@to_populate = if opts.populate? then opts.populate else []
-		@queryVars = if opts.queryVars? then opts.queryVars else []
-		@cascadeRelations = if opts.cascadeRelations? then opts.cascadeRelations else []
-		@relationsFilter = opts.relationsFilter
-		@suggestion = opts.suggestion
-		@ignore = if opts.ignore? then opts.ignore else []
+		@$modelClass = mongoose.model(modelId)
+		
+		@$$taps = {}
+		@options = {}
+		# @to_populate = if opts.populate? then opts.populate else []
+		# @queryVars = if opts.queryVars? then opts.queryVars else []
+		# @cascadeRelations = if opts.cascadeRelations? then opts.cascadeRelations else []
+		# @relationsFilter = opts.relationsFilter
+		# @suggestion = opts.suggestion
+		# @ignore = if opts.ignore? then opts.ignore else []
 
-		if opts.pagination
-			@pagination = opts.pagination
+		# if opts.pagination
+		# 	@pagination = opts.pagination
 
 
 
-		@checks =
-			update:null
-			delete:null
+		# @checks =
+		# 	update:null
+		# 	delete:null
 
-		@prevent = if opts.prevent then opts.prevent else []
+		# @prevent = if opts.prevent then opts.prevent else []
 		@middleware = 
 			get:[]
 			post:[]
 			put:[]
 			delete:[]
 
-		@dataFilters =
-			fetch:[]
-			save:[]
-		@dataFilters.fetch.push(@constructFilterFromRequest)
+		# @dataFilters =
+		# 	fetch:[]
+		# 	save:[]
+		# @dataFilters.fetch.push(@constructFilterFromRequest)
 
 
 
-		@responsePrototype = class CustomResponse extends Response
+		# @responsePrototype = class CustomResponse extends Response
 
-	taps:{}
+	
 	tap:(hook, method, func) ->
 		if method is '*'
 			methods = ['fetch','list','create','update','delete']
 		else
 			methods = [method]
 
-		if !taps[hook]
-			taps[hook] = {}
+		if !@$$taps[hook]
+			@$$taps[hook] = {}
 		for method in methods
-			if !taps[hook][method]
-				taps[hook][method] = []
-			taps[hook][method].push(func)
+			if !@$$taps[hook][method]
+				@$$taps[hook][method] = []
+			@$$taps[hook][method].push(func)
 
-	check:(method, f) ->
-		@checks[method] = f
-		return @
-	addFilter:(method, f) ->
-		@dataFilters[method].push(f)
+		untap = =>
+			index = @$$taps[hook][method].indexOf(func)
+			@$$taps[hook][method].splice(index, 1)
+
+		# Do we want to return untap here?
 		return @
 
-	getPaginationConfig:(req) ->
+	$$runHook:(hook, method, args, mod) ->
+		deferred = Q.defer()
+		
+		runFunction = (f, next, args, data) ->
+			ret = _.bind(f, @, args, data, next)()
+			if ret?
+				next(ret)
+		if !@$$taps[hook]?
+			deferred.resolve(mod)
+		else if !@$$taps[hook][method]?
+			deferred.resolve(mod)
+		else
+			funcs = @$$taps[hook][method]
+
+			# Run them in order. But we need to reverse them to accommodate the callbacks
+			next = (final) ->
+				deferred.resolve(final)
+
+			funcs = funcs.reverse()
+			for func in funcs
+
+				next = _.bind(runFunction, @, func, next, args)
+			
+			next(mod)
+
+		return deferred.promise
+
+	$$fetch:(req) ->
+		deferred = Q.defer()
+		id = req.params.id
+
+
+		if !id
+			err = httperror.forge('ID not provided', 400)
+			deferred.reject(err)
+			return deferred.promise
+
+		if !id.match(/^[0-9a-fA-F]{24}$/)
+			err = httperror.forge('Bad ID', 400)
+			deferred.reject(err)
+			return deferred.promise
+
+
+		# Filter the data
+		@$$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
+
+			filter._id = id
+			query = @$modelClass.findOne(filter)
+
+			# Populate
+			if @options.populate? && @options.populate.length
+				for pop in @options.populate
+					query.populate(pop)
+
+			query.exec (err, model) =>
+				if err
+					return deferred.reject(httperror.forge('Error retrieving dcoument', 500))
+				if !model
+					return deferred.reject(httperror.forge('Could not find document', 404))
+				deferred.resolve(model)
+
+
+		return deferred.promise
+
+
+	addMiddleware:(method, middleware) ->
+		if method is 'all'
+			for m in ['get','post','put','delete']
+				@addMiddleware(m, middleware)
+		else
+			if middleware instanceof Array
+				for m in middleware
+					@addMiddleware(method, m)
+			else
+				@middleware[method].push(middleware)
+
+		return @
+
+
+	register: (app) ->
+		app.get @path + '/:id', @middleware.get, (req, res) =>
+			@$$fetch(req).then (model) =>
+				# Run it through pre-response hooks
+				@$$runHook('pre_response', 'fetch', req, model.toObject()).then (response) =>
+					res.send(response, 200)
+				, (err) ->
+					# Fatal error during hooks
+					console.log '500 there', err.stack
+					res.send(500)
+			, (err) =>
+				@$$runHook('pre_response_error', 'fetch', req, err).then (err) =>
+					res.send(err.message, err.code)
+				, (err) ->
+					console.log '500 here', err.stack
+					res.send(500)
+		# console.log 'Registered endpoint for path:', @path
+		# if @suggestion
+		# 	app.get @path + '/suggestion', @middleware.get, (req, res) =>
+		# 		Q(@getSuggestions(req)).then (results) =>
+		# 			@response('suggestion', req, res, results, 200).send()
+		# 		, (error) =>
+		# 			@response('suggestion:error', req, res, error.message, error.code).send()
+
+		
+
+		# app.get @path, @middleware.get, (req, res) =>
+		# 	Q(@list(req, res)).then (results) =>
+		# 		@response('list', req, res, results, 200).send()
+		# 	, (error) =>
+		# 		console.error error
+		# 		@response('list:error', req, res, error.message, error.code).send()
+		# app.post @path, @middleware.post, (req, res) =>
+		# 	Q(@post(req)).then (results) =>
+		# 		@response('post', req, res, results, 201).send()
+		# 	, (error) =>
+		# 		@response('post:error', req, res, error.message, error.code).send()
+		# app.put @path + '/:id', @middleware.put, (req, res) =>
+		# 	Q(@put(req)).then (results) =>
+		# 		@response('put', req, res, results, 200).send()
+		# 	, (error) =>
+		# 		@response('put:error', req, res, error.message, error.code).send()
+		# app.delete @path + '/:id', @middleware.delete, (req, res) =>
+		# 	Q(@delete(req)).then (results) =>
+		# 		@response('delete', req, res, results, 200).send()
+		# 	, (error) =>
+		# 		@response('delete:error', req, res, error.message, error.code).send()
+
+
+	$$getPaginationConfig:(req) ->
 		data = req.query
 
 		result = 
@@ -167,34 +296,7 @@ class Endpoint
 					returnVal = model.toObject()
 					deferred.resolve(returnVal)
 		return deferred.promise
-	get:(req) ->
-		deferred = Q.defer()
-		id = req.params.id
-
-		data = @filterData(req, 'fetch', {})
-		data._id = id
-		if !id
-			err = httperror.forge('ID not provided', 400)
-			deferred.reject(err)
-		else
-			query = @modelClass.findOne(data)
-
-			if @to_populate.length
-				for pop in @to_populate
-					query.populate(pop)
-			query.exec (err, model) =>
-				
-				if err
-					deferred.reject(httperror.forge('Error retrieving document', 500))
-				else if !model
-					deferred.reject(httperror.forge('Could not find document', 404))
-				else
-					doc = model.toObject()
-					if @ignore.length
-						for field in @ignore
-							delete doc[field]
-					deferred.resolve(doc)
-		return deferred.promise
+	
 
 	populate: (model, rel) ->
 		deferred = Q.defer()
@@ -368,60 +470,13 @@ class Endpoint
 		@responsePrototype[event]('send', callback)
 		return @
 
-	addMiddleware:(method, middleware) ->
-		if method is 'all'
-			for m in ['get','post','put','delete']
-				@addMiddleware(m, middleware)
-		else
-			if middleware instanceof Array
-				for m in middleware
-					@addMiddleware(method, m)
-			else
-				@middleware[method].push(middleware)
-
-		return @
+	
 
 	response: (type, req, res, data, code) ->
 		response = new @responsePrototype(type, req, res, data, code)
 		return response
 	# Register this endpoint with the express app
-	register: (app) ->
-		console.log 'Registered endpoint for path:', @path
-		if @suggestion
-			app.get @path + '/suggestion', @middleware.get, (req, res) =>
-				Q(@getSuggestions(req)).then (results) =>
-					@response('suggestion', req, res, results, 200).send()
-				, (error) =>
-					@response('suggestion:error', req, res, error.message, error.code).send()
-
-		app.get @path + '/:id', @middleware.get, (req, res) =>
-			Q(@get(req)).then (results) =>
-				@response('get',req,res, results, 200).send()
-			, (error) =>
-				console.error error
-				@response('get:error', req, res, error.message, error.code).send()
-
-		app.get @path, @middleware.get, (req, res) =>
-			Q(@list(req, res)).then (results) =>
-				@response('list', req, res, results, 200).send()
-			, (error) =>
-				console.error error
-				@response('list:error', req, res, error.message, error.code).send()
-		app.post @path, @middleware.post, (req, res) =>
-			Q(@post(req)).then (results) =>
-				@response('post', req, res, results, 201).send()
-			, (error) =>
-				@response('post:error', req, res, error.message, error.code).send()
-		app.put @path + '/:id', @middleware.put, (req, res) =>
-			Q(@put(req)).then (results) =>
-				@response('put', req, res, results, 200).send()
-			, (error) =>
-				@response('put:error', req, res, error.message, error.code).send()
-		app.delete @path + '/:id', @middleware.delete, (req, res) =>
-			Q(@delete(req)).then (results) =>
-				@response('delete', req, res, results, 200).send()
-			, (error) =>
-				@response('delete:error', req, res, error.message, error.code).send()
+	
 
 		
 

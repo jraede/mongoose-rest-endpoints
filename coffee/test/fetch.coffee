@@ -16,7 +16,6 @@ commentSchema = new mongoose.Schema
 	_author:
 		type:mongoose.Schema.Types.ObjectId
 		ref:'Author'
-	account:String
 
 
 postSchema = new mongoose.Schema
@@ -30,7 +29,6 @@ postSchema = new mongoose.Schema
 			ref:'Comment'
 			$through:'_post'
 	]
-	account:String
 
 authorSchema = new mongoose.Schema
 	name:'String'
@@ -75,6 +73,9 @@ describe 'Fetch', ->
 				string:'Test'
 			mod.save (err, res) =>
 				@mod = res
+				done()
+		afterEach (done) ->
+			@mod.remove ->
 				done()
 		it 'should retrieve with no hooks', (done) ->
 			
@@ -130,4 +131,81 @@ describe 'Fetch', ->
 				res.text.should.equal('Foo')
 				done()
 		
-	
+	describe 'With middleware', ->
+		beforeEach (done) ->
+			@endpoint = new mre('/api/posts', 'Post')
+			@app = express()
+			@app.use(express.bodyParser())
+			@app.use(express.methodOverride())
+
+			modClass = mongoose.model('Post')
+			mod = modClass
+				date:Date.now()
+				number:5
+				string:'Test'
+			mod.save (err, res) =>
+				@mod = res
+				done()
+		afterEach (done) ->
+			@mod.remove ->
+				done()
+		it 'should retrieve with middleware', (done) ->
+			
+			@endpoint.addMiddleware('fetch', requirePassword('asdf'))
+			@endpoint.register(@app)
+
+			
+			request(@app).get('/api/posts/' + @mod._id).query
+				password:'asdf'
+			.end (err, res) ->
+				res.status.should.equal(200)
+				res.body.number.should.equal(5)
+				res.body.string.should.equal('Test')
+				done()
+
+		it 'should give a 401 with wrong password', (done) ->
+			@endpoint.addMiddleware('fetch', requirePassword('asdf'))
+			@endpoint.register(@app)
+
+			
+			request(@app).get('/api/posts/' + @mod._id).query
+				password:'ffff'
+			.end (err, res) ->
+				res.status.should.equal(401)
+				done()
+
+
+	describe 'Populate', ->
+		beforeEach (done) ->
+			@endpoint = new mre('/api/posts', 'Post')
+			@app = express()
+			@app.use(express.bodyParser())
+			@app.use(express.methodOverride())
+
+			modClass = mongoose.model('Post')
+			mod = modClass
+				date:Date.now()
+				number:5
+				string:'Test'
+				_related:
+					_comments:[
+							comment:'Asdf1234'
+					]
+			mod.cascadeSave (err, res) =>
+				@mod = res
+				done()
+		afterEach (done) ->
+			@mod.remove ->
+				done()
+		it 'should populate on _related', (done) ->
+			@endpoint.populate('_comments').register(@app)
+
+
+			request(@app).get('/api/posts/' + @mod._id).end (err, res) ->
+				res.status.should.equal(200)
+				res.body.number.should.equal(5)
+				res.body.string.should.equal('Test')
+				res.body._related._comments.length.should.equal(1)
+				res.body._comments.length.should.equal(1)
+				res.body._related._comments[0].comment.should.equal('Asdf1234')
+				done()

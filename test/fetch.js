@@ -21,8 +21,7 @@ commentSchema = new mongoose.Schema({
   _author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Author'
-  },
-  account: String
+  }
 });
 
 postSchema = new mongoose.Schema({
@@ -38,8 +37,7 @@ postSchema = new mongoose.Schema({
       ref: 'Comment',
       $through: '_post'
     }
-  ],
-  account: String
+  ]
 });
 
 authorSchema = new mongoose.Schema({
@@ -75,7 +73,7 @@ mongoose.model('Author', authorSchema);
 mongoose.set('debug', true);
 
 describe('Fetch', function() {
-  return describe('Basic object', function() {
+  describe('Basic object', function() {
     beforeEach(function(done) {
       var mod, modClass,
         _this = this;
@@ -91,6 +89,11 @@ describe('Fetch', function() {
       });
       return mod.save(function(err, res) {
         _this.mod = res;
+        return done();
+      });
+    });
+    afterEach(function(done) {
+      return this.mod.remove(function() {
         return done();
       });
     });
@@ -142,6 +145,97 @@ describe('Fetch', function() {
       return request(this.app).get('/api/posts/abcdabcdabcdabcdabcdabcd').end(function(err, res) {
         res.status.should.equal(404);
         res.text.should.equal('Foo');
+        return done();
+      });
+    });
+  });
+  describe('With middleware', function() {
+    beforeEach(function(done) {
+      var mod, modClass,
+        _this = this;
+      this.endpoint = new mre('/api/posts', 'Post');
+      this.app = express();
+      this.app.use(express.bodyParser());
+      this.app.use(express.methodOverride());
+      modClass = mongoose.model('Post');
+      mod = modClass({
+        date: Date.now(),
+        number: 5,
+        string: 'Test'
+      });
+      return mod.save(function(err, res) {
+        _this.mod = res;
+        return done();
+      });
+    });
+    afterEach(function(done) {
+      return this.mod.remove(function() {
+        return done();
+      });
+    });
+    it('should retrieve with middleware', function(done) {
+      this.endpoint.addMiddleware('fetch', requirePassword('asdf'));
+      this.endpoint.register(this.app);
+      return request(this.app).get('/api/posts/' + this.mod._id).query({
+        password: 'asdf'
+      }).end(function(err, res) {
+        res.status.should.equal(200);
+        res.body.number.should.equal(5);
+        res.body.string.should.equal('Test');
+        return done();
+      });
+    });
+    return it('should give a 401 with wrong password', function(done) {
+      this.endpoint.addMiddleware('fetch', requirePassword('asdf'));
+      this.endpoint.register(this.app);
+      return request(this.app).get('/api/posts/' + this.mod._id).query({
+        password: 'ffff'
+      }).end(function(err, res) {
+        res.status.should.equal(401);
+        return done();
+      });
+    });
+  });
+  return describe('Populate', function() {
+    beforeEach(function(done) {
+      var mod, modClass,
+        _this = this;
+      this.endpoint = new mre('/api/posts', 'Post');
+      this.app = express();
+      this.app.use(express.bodyParser());
+      this.app.use(express.methodOverride());
+      modClass = mongoose.model('Post');
+      mod = modClass({
+        date: Date.now(),
+        number: 5,
+        string: 'Test',
+        _related: {
+          _comments: [
+            {
+              comment: 'Asdf1234'
+            }
+          ]
+        }
+      });
+      return mod.cascadeSave(function(err, res) {
+        _this.mod = res;
+        return done();
+      });
+    });
+    afterEach(function(done) {
+      return this.mod.remove(function() {
+        return done();
+      });
+    });
+    return it('should populate on _related', function(done) {
+      this.endpoint.populate('_comments').register(this.app);
+      return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
+        res.status.should.equal(200);
+        res.body.number.should.equal(5);
+        res.body.string.should.equal('Test');
+        res.body._related._comments.length.should.equal(1);
+        res.body._comments.length.should.equal(1);
+        res.body._related._comments[0].comment.should.equal('Asdf1234');
         return done();
       });
     });

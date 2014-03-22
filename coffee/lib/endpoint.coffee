@@ -2,7 +2,6 @@ mongoose = require('mongoose')
 Q = require('q')
 httperror = require('./httperror')
 _ = require('underscore')
-Response = require './response'
 
 dot = require 'dot-component'
 
@@ -11,56 +10,99 @@ dot = require 'dot-component'
 Middle ware is separate
 HOOKS:
 	pre_filter (before execution [default values, remove fields, etc])
-	post_retrieve (after retrieval of the model [maybe they can only do something if the model has a certain value])
+	post_retrieve (after retrieval of the model [maybe they can only do something if the model has a certain value]). Only applies on PUT/DELETE requests
 	pre_response (after execution, before response [hide fields, modify, etc])
 ###
 class Endpoint
 
-	####
-	# @param String path - the base URL for the endpoint
-	# @param String modelId - the name of the document
-	# @param Object opts - Additional options
-	#### 
+	###
+	@param String path - the base URL for the endpoint
+	@param String modelId - the name of the document
+	@param Object opts - Additional options (see defaults below)
+	### 
 	constructor:(path, modelId, opts) ->
 		@path = path
 		@modelId = modelId
 		@$modelClass = mongoose.model(modelId)
 		
 		@$$taps = {}
-		@options = {}
-		# @to_populate = if opts.populate? then opts.populate else []
-		# @queryVars = if opts.queryVars? then opts.queryVars else []
-		# @cascadeRelations = if opts.cascadeRelations? then opts.cascadeRelations else []
-		# @relationsFilter = opts.relationsFilter
-		# @suggestion = opts.suggestion
-		# @ignore = if opts.ignore? then opts.ignore else []
+		@options = 
+			queryParams:[]
+			#cascade:
+			#	allowedRelations:[]
+			#	filter:(data, schemaPath) ->
+			#		return data
+			pagination:
+				perPage:50
+				sortField:'_id'
+			populate:[]
+		if opts?
+			@options = _.extend(@options, opts)
 
-		# if opts.pagination
-		# 	@pagination = opts.pagination
 
-
-
-		# @checks =
-		# 	update:null
-		# 	delete:null
-
-		# @prevent = if opts.prevent then opts.prevent else []
-		@middleware = 
-			get:[]
+		@$$middleware = 
+			fetch:[]
+			list:[]
 			post:[]
 			put:[]
 			delete:[]
 
-		# @dataFilters =
-		# 	fetch:[]
-		# 	save:[]
-		# @dataFilters.fetch.push(@constructFilterFromRequest)
+		# We want to tap into the list to use our default filtering function for req.query
+		@tap('pre_filter', 'list', @$$constructFilterFromRequest)
+
+	###
+	Add field to populate options. These fields will be populated on every request except delete
+
+	@param String field
+	@return Endpoint for chaining
+	###
+	populate:(field) ->
+
+		if field instanceof Array
+			for p in field
+				@options.populate.push(p)
+		else
+			@options.populate.push(field)
+		return @
+
+	###
+	Allow a query param or params to become part of the search filter for list requests.
+
+	@param String|Array param
+	@return Endpoint for chaining
+	###
+	allowQueryParam:(param) ->
+
+		if param instanceof Array
+			for p in param
+				@options.queryParams.push(p)
+		else
+			@options.queryParams.push(param)
+
+		return @
 
 
+	cascade:(allowed, filter) ->
+		@options.cascade =
+			allowedRelations:allowed
+			filter:filter
+		return @
 
-		# @responsePrototype = class CustomResponse extends Response
+	###
+	Tap a function onto a hook. Hooks may pass a value through each function to get the final result
+	(filter) or just execute all the functions in a row (action). Each function is structured the same;
+	they just may have a null value for the `data` argument (2nd argument).
 
-	
+	Functions look like this:
+	`function(arguments, data, next) {}`
+
+	...and must either call next(data) (optionally with modified data) or just return a non-null value
+	(the system assumes that a null return value means that next will be called instead)
+
+	@param String hook 		The name of the hook
+	@param String method 	The method (fetch, list, post, put, delete).
+	@param Function func 	Function to run on hook
+	###
 	tap:(hook, method, func) ->
 		if method is '*'
 			methods = ['fetch','list','create','update','delete']
@@ -81,110 +123,94 @@ class Endpoint
 		# Do we want to return untap here?
 		return @
 
-	$$runHook:(hook, method, args, mod) ->
-		deferred = Q.defer()
-		
-		runFunction = (f, next, args, data) ->
-			ret = _.bind(f, @, args, data, next)()
-			if ret?
-				next(ret)
-		if !@$$taps[hook]?
-			deferred.resolve(mod)
-		else if !@$$taps[hook][method]?
-			deferred.resolve(mod)
-		else
-			funcs = @$$taps[hook][method]
+	###
+	Add standard express middleware to one of the five methods. "all" or "*"
+	apply for all five. Connect middleware syntax applies.
 
-			# Run them in order. But we need to reverse them to accommodate the callbacks
-			next = (final) ->
-				deferred.resolve(final)
-
-			funcs = funcs.reverse()
-			for func in funcs
-
-				next = _.bind(runFunction, @, func, next, args)
-			
-			next(mod)
-
-		return deferred.promise
-
-	$$fetch:(req) ->
-		deferred = Q.defer()
-		id = req.params.id
-
-
-		if !id
-			err = httperror.forge('ID not provided', 400)
-			deferred.reject(err)
-			return deferred.promise
-
-		if !id.match(/^[0-9a-fA-F]{24}$/)
-			err = httperror.forge('Bad ID', 400)
-			deferred.reject(err)
-			return deferred.promise
-
-
-		# Filter the data
-		@$$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
-
-			filter._id = id
-			query = @$modelClass.findOne(filter)
-
-			# Populate
-			if @options.populate? && @options.populate.length
-				for pop in @options.populate
-					query.populate(pop)
-
-			query.exec (err, model) =>
-				if err
-					return deferred.reject(httperror.forge('Error retrieving dcoument', 500))
-				if !model
-					return deferred.reject(httperror.forge('Could not find document', 404))
-				deferred.resolve(model)
-
-
-		return deferred.promise
-
-
+	@param String method 			Method name
+	@param Function middleware 		Connect-style middleware function
+	@return Endpoint for chaining
+	###
 	addMiddleware:(method, middleware) ->
-		if method is 'all'
-			for m in ['get','post','put','delete']
+		if method is 'all' or method is '*'
+			for m in ['list','fetch','post','put','delete']
 				@addMiddleware(m, middleware)
 		else
 			if middleware instanceof Array
 				for m in middleware
 					@addMiddleware(method, m)
 			else
-				@middleware[method].push(middleware)
+				@$$middleware[method].push(middleware)
 
 		return @
 
 
+
+	###
+	Register then endpoints on an express app.
+
+	@param Express app
+	###
 	register: (app) ->
-		app.get @path + '/:id', @middleware.get, (req, res) =>
-			@$$fetch(req).then (model) =>
+
+		# Fetch
+		app.get @path + '/:id', @$$middleware.fetch, (req, res) =>
+			@$$fetch(req, res).then (model) =>
 				# Run it through pre-response hooks
 				@$$runHook('pre_response', 'fetch', req, model.toObject()).then (response) =>
 					res.send(response, 200)
 				, (err) ->
 					# Fatal error during hooks
-					console.log '500 there', err.stack
 					res.send(500)
 			, (err) =>
 				@$$runHook('pre_response_error', 'fetch', req, err).then (err) =>
 					res.send(err.message, err.code)
 				, (err) ->
-					console.log '500 here', err.stack
 					res.send(500)
-		# console.log 'Registered endpoint for path:', @path
-		# if @suggestion
-		# 	app.get @path + '/suggestion', @middleware.get, (req, res) =>
-		# 		Q(@getSuggestions(req)).then (results) =>
-		# 			@response('suggestion', req, res, results, 200).send()
-		# 		, (error) =>
-		# 			@response('suggestion:error', req, res, error.message, error.code).send()
 
-		
+		app.get @path, @$$middleware.list, (req, res) =>
+			@$$list(req, res).then (models) =>
+				final = []
+				for model in models
+					final.push(model.toObject())
+				# Run it through pre-response hooks
+				@$$runHook('pre_response', 'list', req, final).then (response) =>
+					res.send(response, 200)
+				, (err) ->
+					# Fatal error during hooks
+					res.send(500)
+			, (err) =>
+				@$$runHook('pre_response_error', 'list', req, err).then (err) =>
+					res.send(err.message, err.code)
+				, (err) ->
+					res.send(500)
+
+		app.post @path, @$$middleware.post, (req, res) =>
+			@$$post(req, res).then (model) =>
+				@$$runHook('pre_response', 'post', req, model.toObject()).then (response) =>
+					res.send(response, 201)
+				, (err) ->
+					# Fatal error during hooks
+					res.send(500)
+			, (err) =>
+				@$$runHook('pre_response_error', 'post', req, err).then (err) =>
+					res.send(err.message, err.code)
+				, (err) ->
+					res.send(500)
+
+		app.put @path + '/:id', @$$middleware.put, (req, res) =>
+			@$$put(req, res).then (model) =>
+				@$$runHook('pre_response', 'put', req, model.toObject()).then (response) =>
+					res.send(response, 200)
+				, (err) ->
+					# Fatal error during hooks
+					res.send(500)
+			, (err) =>
+				@$$runHook('pre_response_error', 'put', req, err).then (err) =>
+					res.send(err.message, err.code)
+				, (err) ->
+					res.send(500)
+	
 
 		# app.get @path, @middleware.get, (req, res) =>
 		# 	Q(@list(req, res)).then (results) =>
@@ -207,6 +233,218 @@ class Endpoint
 		# 		@response('delete', req, res, results, 200).send()
 		# 	, (error) =>
 		# 		@response('delete:error', req, res, error.message, error.code).send()
+	###
+	PRIVATE METHODS
+	###
+	$$runHook:(hook, method, args, mod) ->
+		deferred = Q.defer()
+		
+		runFunction = (f, next, args, data) ->
+			try 
+				ret = _.bind(f, @, args, data, next)()
+				if ret?
+					next(ret)
+			catch err
+				deferred.reject(err)
+
+		if !@$$taps[hook]?
+			deferred.resolve(mod)
+		else if !@$$taps[hook][method]?
+			deferred.resolve(mod)
+		else
+			funcs = @$$taps[hook][method]
+
+			
+			next = (final) ->
+				deferred.resolve(final)
+
+
+			# Run them in order. But we need to reverse them to accommodate the callbacks
+			funcs = funcs.reverse()
+			for func in funcs
+
+				next = _.bind(runFunction, @, func, next, args)
+			
+			next(mod)
+
+		return deferred.promise
+
+	$$populateQuery:(query) ->
+		if @options.populate? and @options.populate.length
+			for pop in @options.populate
+				query.populate(pop)
+	$$populateDocument:(doc) ->
+
+		populatePath = (path, doc) ->
+			d = Q.defer()
+			doc.populate path, (err, doc) ->
+				deferred.resolve()
+
+		promises = []
+		for pop in @options.populate
+			promises.push(populatePath(pop, doc))
+
+		return Q.all(promises)
+
+	$$fetch:(req, res) ->
+		deferred = Q.defer()
+		id = req.params.id
+
+
+		if !id
+			err = httperror.forge('ID not provided', 400)
+			deferred.reject(err)
+			return deferred.promise
+
+		if !id.match(/^[0-9a-fA-F]{24}$/)
+			err = httperror.forge('Bad ID', 400)
+			deferred.reject(err)
+			return deferred.promise
+
+
+		# Filter the data
+		@$$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
+
+			filter._id = id
+			query = @$modelClass.findOne(filter)
+
+			# Populate
+			@$$populateQuery(query)
+
+			query.exec (err, model) =>
+				if err
+					return deferred.reject(httperror.forge('Error retrieving dcoument', 500))
+				if !model
+					return deferred.reject(httperror.forge('Could not find document', 404))
+				deferred.resolve(model)
+
+
+		return deferred.promise
+
+
+	$$list:(req, res) ->
+		deferred = Q.defer()
+
+		@$$runHook('pre_filter', 'list', req, {}).then (filter) =>
+			query = @$modelClass.find(filter)
+
+			# Populate
+			@$$populateQuery(query)
+
+			if @options.pagination
+				# Get total
+				# 
+				@$modelClass.count filter, (err, count) =>
+					if err
+						return deferred.reject(httperror.forge('Could not retrieve collection', 500))
+
+					res.setHeader('Record-Count', count.toString())
+
+
+					config = @$$getPaginationConfig(req)
+					query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage).exec (err, collection) =>
+
+
+						if err
+							deferred.reject(httperror.forge('Could not retrieve collection', 500))
+						else
+							deferred.resolve(collection)
+
+			else
+
+				query.exec (err, collection) =>
+					if err
+						deferred.reject(httperror.forge('Could not retrieve collection', 500))
+					else
+						deferred.resolve(collection)
+
+			return deferred.promise
+
+
+
+	$$post:(req, res) ->
+		deferred = Q.defer()
+
+		@$$runHook('pre_filter', 'post', req, req.body).then (data) =>
+			model = new @$modelClass(data)
+
+			if @options.cascade?
+				model.cascadeSave (err, model) =>
+					if err
+						deferred.reject(httperror.forge(err, 400))
+					else
+						@$$populateDocument(model).then ->
+							deferred.resolve(model)
+				, 
+					limit:@options.cascade.allowedRelations
+					filter:@options.cascade.filter
+			else
+				model.save (err, model) =>
+					# Populate
+					if err
+						return deferred.reject(httperror.forge(err, 400))
+					@$$populateDocument(model).then ->
+						deferred.resolve(model)
+					
+		return deferred.promise
+
+	$$put:(req, res) ->
+		deferred = Q.defer()
+
+
+		id = req.params.id
+		if !id.match(/^[0-9a-fA-F]{24}$/)
+			deferred.reject(httperror.forge('Bad ID', 400))
+			return deferred.promise
+
+		# The fetch pre filter runs here in case they want to prevent fetching based on
+		# some parameter. Same would apply for this (and delete)
+		@$$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
+
+			filter._id = id
+
+			query = @$modelClass.findOne(filter)
+
+			@$$populateQuery(query)
+			query.exec (err, model) =>
+				if err
+					return deferred.reject(httperror.forge('Server error', 500))
+				if !model
+					return deferred.reject(httperror.forge('Not found', 404))
+
+				# Post retrieve hook
+
+				@$$runHook('post_retrieve', 'put', req, model).then (model) =>
+					# Now parse the data
+					# 
+					data = req.body
+					delete data._id
+					delete data.__v
+					@$$runHook('pre_filter', 'put', req, data).then (data) =>
+						model.set(data)
+
+						if @options.cascade?
+							model.cascadeSave (err, model) =>
+								if err
+									deferred.reject(httperror.forge(err, 400))
+								else
+									@$$populateDocument(model).then ->
+										deferred.resolve(model)
+							, 
+								limit:@options.cascade.allowedRelations
+								filter:@options.cascade.filter
+						else
+							model.save (err, model) =>
+								# Populate
+								if err
+									return deferred.reject(httperror.forge(err, 400))
+								@$$populateDocument(model).then ->
+									deferred.resolve(model)
+				, (err) ->
+					return deferred.reject(httperror.forge(err.message, err.code))
+
+					
+		return deferred.promise
 
 
 	$$getPaginationConfig:(req) ->
@@ -220,14 +458,14 @@ class Endpoint
 		if !result.page? or isNaN(result.page) or result.page < 1
 			result.page = 1
 		if !result.perPage?
-			result.perPage = @pagination.defaults.perPage
+			result.perPage = @options.pagination.perPage
 		if !result.sortField?
-			result.sortField = @pagination.defaults.sortField
+			result.sortField = @options.pagination.sortField
 
 		return result
 
 	
-	constructFilterFromRequest:(req, data) ->
+	$$constructFilterFromRequest:(req, data, next) ->
 		addToFilter = (filter, prop, key, val) ->
 			if filter[prop]?
 				filter[prop][key] = val
@@ -235,8 +473,8 @@ class Endpoint
 				filter[prop] = {}
 				filter[prop][key] = val
 		filter = {}
-		if @queryVars
-			for query_var in @queryVars
+		if @options.queryParams
+			for query_var in @options.queryParams
 				if req.query[query_var] and (_.isString(req.query[query_var]) or req.query[query_var] instanceof Date)
 					if query_var.substr(0, 4) is '$lt_'
 						addToFilter(filter, query_var.replace('$lt_', ''), '$lt', req.query[query_var])
@@ -255,17 +493,6 @@ class Endpoint
 		return filter
 
 
-	
-
-	filterData:(req, method, data) ->
-		r = data
-		if @dataFilters[method].length
-			for f in @dataFilters[method]
-				if typeof f isnt 'function'
-					continue
-				f = _.bind(f, @)
-				r = f(req, r)
-		return r
 	
 
 	post:(req) ->
@@ -297,15 +524,6 @@ class Endpoint
 					deferred.resolve(returnVal)
 		return deferred.promise
 	
-
-	populate: (model, rel) ->
-		deferred = Q.defer()
-		model.populate rel, (err, model) ->
-			if err
-				deferred.reject(err)
-			else
-				deferred.resolve(model)
-		return deferred.promise
 	put:(req) ->
 		deferred = Q.defer()
 		id = req.params.id
@@ -392,91 +610,7 @@ class Endpoint
 				deferred.reject(httperror.forge('Error deleting document', 500))
 			else
 				deferred.resolve()
-	list:(req, res) ->
-		deferred = Q.defer()
 
-		filter = @filterData(req, 'fetch')
-				
-		query = @modelClass.find(filter) 
-
-
-		if @to_populate.length
-			for pop in @to_populate
-				query.populate(pop)
-
-		if @pagination
-			# Get total
-			@modelClass.count filter, (err, count) =>
-				if err
-					return deferred.reject(htperror.forge('Could not retrieve collection', 500))
-
-				res.setHeader('Record-Count', count.toString())
-
-
-				config = @getPaginationConfig(req)
-				query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage).exec (err, collection) =>
-					if @ignore.length
-						for obj,key in collection
-							obj = obj.toObject()
-							for field in @ignore
-								delete obj[field]
-							collection[key] = obj
-					if err
-						deferred.reject(httperror.forge('Could not retrieve collection', 500))
-					else
-						deferred.resolve(collection)
-		else
-
-			query.exec (err, collection) =>
-				if @ignore.length
-					for obj,key in collection
-						obj = obj.toObject()
-						for field in @ignore
-							delete obj[field]
-						collection[key] = obj
-				if err
-					deferred.reject(httperror.forge('Could not retrieve collection', 500))
-				else
-					deferred.resolve(collection)
-
-		return deferred.promise
-
-	getSuggestions: (req) ->
-		deferred = Q.defer()
-		if @suggestion.forgeQuery
-			params = @suggestion.forgeQuery(req)
-		else
-			params = null
-
-		@modelClass.find params, (err, results) =>
-			if err
-				console.error err
-				deferred.reject(httperror.forge('Error fetching results', 500))
-			else
-				final = []
-
-				for res in results
-					obj=
-						id:res._id
-						value:@suggestion.getLabel(res)
-						tokens: @suggestion.getTokens(res)
-					final.push(obj)
-				deferred.resolve(final)
-		
-		return deferred.promise
-
-
-	responseHook:(event, callback) ->
-		@responsePrototype[event]('send', callback)
-		return @
-
-	
-
-	response: (type, req, res, data, code) ->
-		response = new @responsePrototype(type, req, res, data, code)
-		return response
-	# Register this endpoint with the express app
-	
 
 		
 

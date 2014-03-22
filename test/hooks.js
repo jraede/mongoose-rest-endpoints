@@ -107,7 +107,7 @@ describe('Hooks Test', function() {
       return done();
     });
   });
-  return it('should accurately assign value of "this" in hooks', function(done) {
+  it('should accurately assign value of "this" in hooks', function(done) {
     var endpoint;
     endpoint = new mre('/api/posts', 'Post').tap('hook', 'fetch', function(args, data, next) {
       this.TEST += 'A';
@@ -122,6 +122,29 @@ describe('Hooks Test', function() {
     endpoint.TEST = '';
     return endpoint.$$runHook('hook', 'fetch').then(function() {
       endpoint.TEST.should.equal('ABC');
+      return done();
+    });
+  });
+  return it('should gracefully handle thrown errors', function(done) {
+    var endpoint;
+    endpoint = new mre('/api/posts', 'Post').tap('hook', 'fetch', function(args, data, next) {
+      data += 'A';
+      return data;
+    }).tap('hook', 'fetch', function(args, data, next) {
+      var error;
+      data += 'B';
+      error = new Error('foo');
+      error.code = 401;
+      throw error;
+    }).tap('hook', 'fetch', function(args, data, next) {
+      data += 'C';
+      return data;
+    });
+    return endpoint.$$runHook('hook', 'fetch', null, '').then(function(result) {
+      result.should.equal('ABC');
+      return done(new Error('Should not have gotten here'));
+    }, function(err) {
+      err.code.should.equal(401);
       return done();
     });
   });

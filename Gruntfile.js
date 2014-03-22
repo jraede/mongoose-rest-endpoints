@@ -63,6 +63,9 @@ module.exports = function(grunt) {
 
 	grunt.registerTask('test', 'Run tests', function(type) {
 		var tasks = ['dropTestDb']
+		if(type === undefined) {
+			type = 'all';
+		}
 		switch(type) {
 
 			case 'all':
@@ -71,8 +74,9 @@ module.exports = function(grunt) {
 				for(var i=0;i<files.length;i++) {
 					file = files[i];
 						tasks.push('exec:test:"test/' + file + '"')
-						tasks.push('dropTestDb')
 				}
+
+				console.log(tasks);
 				//tasks = ['exec:test:"test/unit/*.js"']
 				break;
 			default:

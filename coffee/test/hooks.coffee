@@ -104,4 +104,27 @@ describe 'Hooks Test', ->
 		endpoint.$$runHook('hook', 'fetch').then ->
 			endpoint.TEST.should.equal('ABC')
 			done()
+
+
+	it 'should gracefully handle thrown errors', (done) ->
+		endpoint = new mre('/api/posts', 'Post')
+		.tap 'hook', 'fetch', (args, data, next) ->
+			data += 'A'
+			return data
+		.tap 'hook', 'fetch', (args, data, next) ->
+			data += 'B'
+
+			error = new Error('foo')
+			error.code = 401
+			throw error
+		.tap 'hook', 'fetch', (args, data, next) ->
+			data += 'C'
+			return data
+
+		endpoint.$$runHook('hook', 'fetch', null, '').then (result) ->
+			result.should.equal('ABC')
+			done(new Error('Should not have gotten here'))
+		, (err) ->
+			err.code.should.equal(401)
+			done()
 	

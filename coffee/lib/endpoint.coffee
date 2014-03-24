@@ -8,17 +8,14 @@ dot = require 'dot-component'
 
 ###
 Middle ware is separate
-HOOKS:
-	pre_filter (before execution [default values, remove fields, etc])
-	post_retrieve (after retrieval of the model [maybe they can only do something if the model has a certain value]). Only applies on PUT/DELETE requests
-	pre_response (after execution, before response [hide fields, modify, etc])
+
 ###
-class Endpoint
+module.exports = class Endpoint
 
 	###
-	@param String path - the base URL for the endpoint
-	@param String modelId - the name of the document
-	@param Object opts - Additional options (see defaults below)
+	 * @param String path 			the base URL for the endpoint
+	 * @param String modelId 		the name of the document
+	 * @param Object opts 			Additional options (see defaults below)
 	### 
 	constructor:(path, modelId, opts) ->
 		@path = path
@@ -51,10 +48,10 @@ class Endpoint
 		@tap('pre_filter', 'list', @$$constructFilterFromRequest)
 
 	###
-	Add field to populate options. These fields will be populated on every request except delete
-
-	@param String field
-	@return Endpoint for chaining
+	 * Add field to populate options. These fields will be populated on every request except delete
+	 *
+	 * @param String field
+	 * @return Endpoint for chaining
 	###
 	populate:(field) ->
 
@@ -66,10 +63,10 @@ class Endpoint
 		return @
 
 	###
-	Allow a query param or params to become part of the search filter for list requests.
-
-	@param String|Array param
-	@return Endpoint for chaining
+	 * Allow a query param or params to become part of the search filter for list requests.
+	 *
+	 * @param String|Array param
+	 * @return Endpoint for chaining
 	###
 	allowQueryParam:(param) ->
 
@@ -81,7 +78,13 @@ class Endpoint
 
 		return @
 
-
+	###
+	 * Set cascade parameters for playing nicely with cascading-relations package
+	 *
+	 * @param Array allowed 		Allowed relation paths
+	 * @param Function filter 		Filter function to pass all related docs through
+	 * @return Endpoint for chaining
+	###
 	cascade:(allowed, filter) ->
 		@options.cascade =
 			allowedRelations:allowed
@@ -89,19 +92,30 @@ class Endpoint
 		return @
 
 	###
-	Tap a function onto a hook. Hooks may pass a value through each function to get the final result
-	(filter) or just execute all the functions in a row (action). Each function is structured the same;
-	they just may have a null value for the `data` argument (2nd argument).
-
-	Functions look like this:
-	`function(arguments, data, next) {}`
-
-	...and must either call next(data) (optionally with modified data) or just return a non-null value
-	(the system assumes that a null return value means that next will be called instead)
-
-	@param String hook 		The name of the hook
-	@param String method 	The method (fetch, list, post, put, delete).
-	@param Function func 	Function to run on hook
+	 * Tap a function onto a hook. Hooks may pass a value through each function to get the final 
+	 * result (filter) or just execute all the functions in a row (action). 
+	 * Each function is structured the same; they just may have a null value for the 
+	 * `data` argument (2nd argument).
+	 *
+	 * Functions look like this:
+	 * `function(arguments, data, next) {}`
+	 * 
+	 * ...and must either call next(data) (optionally with modified data) or just return a 
+	 * non-null value (the system assumes that a null return value means that next will be 
+	 * called instead)
+	 *
+	 * HOOKS:
+	 * * pre_filter (before execution [default values, remove fields, etc]). Note that the "fetch"
+	 * 		filter will be used for retrieving documents in PUT and DELETE requests before performing
+	 * 		operations on them. Useful for limiting the documents people have access to.
+	 * * post_retrieve (after retrieval of the model [maybe they can only do something 
+	 * 		if the model has a certain value]). Only applies on PUT/DELETE requests
+	 * * pre_response (after execution, before response [hide fields, modify, etc])
+	 * * pre_response_error (after execution, before response, if execution throws an error)
+	 * 
+	 * @param String hook 		The name of the hook
+	 * @param String method 	The method (fetch, list, post, put, delete).
+	 * @param Function func 	Function to run on hook
 	###
 	tap:(hook, method, func) ->
 		if method is '*'
@@ -124,12 +138,12 @@ class Endpoint
 		return @
 
 	###
-	Add standard express middleware to one of the five methods. "all" or "*"
-	apply for all five. Connect middleware syntax applies.
-
-	@param String method 			Method name
-	@param Function middleware 		Connect-style middleware function
-	@return Endpoint for chaining
+	 * Add standard express middleware to one of the five methods. "all" or "*"
+	 * apply for all five. Connect middleware syntax applies.
+	 * 
+	 * @param String method 			Method name
+	 * @param Function middleware 		Connect-style middleware function
+	 * @return Endpoint for chaining
 	###
 	addMiddleware:(method, middleware) ->
 		if method is 'all' or method is '*'
@@ -147,9 +161,9 @@ class Endpoint
 
 
 	###
-	Register then endpoints on an express app.
-
-	@param Express app
+	 * Register the endpoints on an express app.
+	 * 
+	 * @param Express app
 	###
 	register: (app) ->
 
@@ -160,13 +174,18 @@ class Endpoint
 				@$$runHook('pre_response', 'fetch', req, model.toObject()).then (response) =>
 					res.send(response, 200)
 				, (err) ->
-					# Fatal error during hooks
-					res.send(500)
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
 			, (err) =>
 				@$$runHook('pre_response_error', 'fetch', req, err).then (err) =>
 					res.send(err.message, err.code)
 				, (err) ->
-					res.send(500)
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
 
 		app.get @path, @$$middleware.list, (req, res) =>
 			@$$list(req, res).then (models) =>
@@ -177,62 +196,75 @@ class Endpoint
 				@$$runHook('pre_response', 'list', req, final).then (response) =>
 					res.send(response, 200)
 				, (err) ->
-					# Fatal error during hooks
-					res.send(500)
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
 			, (err) =>
 				@$$runHook('pre_response_error', 'list', req, err).then (err) =>
 					res.send(err.message, err.code)
 				, (err) ->
-					res.send(500)
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
 
 		app.post @path, @$$middleware.post, (req, res) =>
 			@$$post(req, res).then (model) =>
 				@$$runHook('pre_response', 'post', req, model.toObject()).then (response) =>
 					res.send(response, 201)
 				, (err) ->
-					# Fatal error during hooks
-					res.send(500)
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
 			, (err) =>
 				@$$runHook('pre_response_error', 'post', req, err).then (err) =>
 					res.send(err.message, err.code)
 				, (err) ->
-					res.send(500)
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
 
 		app.put @path + '/:id', @$$middleware.put, (req, res) =>
 			@$$put(req, res).then (model) =>
 				@$$runHook('pre_response', 'put', req, model.toObject()).then (response) =>
 					res.send(response, 200)
 				, (err) ->
-					# Fatal error during hooks
-					res.send(500)
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
 			, (err) =>
 				@$$runHook('pre_response_error', 'put', req, err).then (err) =>
 					res.send(err.message, err.code)
 				, (err) ->
-					res.send(500)
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
+
+
+		app.delete @path + '/:id', @$$middleware.delete, (req, res) =>
+			@$$delete(req, res).then =>
+				@$$runHook('pre_response', 'delete', req, {}).then ->
+					res.send(200)
+				, (err) ->
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
+			, (err) =>
+				@$$runHook('pre_response_error', 'delete', req, err).then (err) =>
+					res.send(err.message, err.code)
+				, (err) ->
+					if err.code
+						res.send(err.message, err.code)
+					else
+						res.send(500)
 	
 
-		# app.get @path, @middleware.get, (req, res) =>
-		# 	Q(@list(req, res)).then (results) =>
-		# 		@response('list', req, res, results, 200).send()
-		# 	, (error) =>
-		# 		console.error error
-		# 		@response('list:error', req, res, error.message, error.code).send()
-		# app.post @path, @middleware.post, (req, res) =>
-		# 	Q(@post(req)).then (results) =>
-		# 		@response('post', req, res, results, 201).send()
-		# 	, (error) =>
-		# 		@response('post:error', req, res, error.message, error.code).send()
-		# app.put @path + '/:id', @middleware.put, (req, res) =>
-		# 	Q(@put(req)).then (results) =>
-		# 		@response('put', req, res, results, 200).send()
-		# 	, (error) =>
-		# 		@response('put:error', req, res, error.message, error.code).send()
-		# app.delete @path + '/:id', @middleware.delete, (req, res) =>
-		# 	Q(@delete(req)).then (results) =>
-		# 		@response('delete', req, res, results, 200).send()
-		# 	, (error) =>
-		# 		@response('delete:error', req, res, error.message, error.code).send()
 	###
 	PRIVATE METHODS
 	###
@@ -446,6 +478,44 @@ class Endpoint
 					
 		return deferred.promise
 
+	$$delete:(req, res) ->
+		deferred = Q.defer()
+
+
+		id = req.params.id
+		if !id.match(/^[0-9a-fA-F]{24}$/)
+			deferred.reject(httperror.forge('Bad ID', 400))
+			return deferred.promise
+
+		# The fetch pre filter runs here in case they want to prevent fetching based on
+		# some parameter. Same would apply for this (and delete)
+		@$$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
+			filter._id = id
+			query = @$modelClass.findOne(filter)
+
+			@$$populateQuery(query)
+			query.exec (err, model) =>
+				if err
+					return deferred.reject(httperror.forge('Server error', 500))
+				if !model
+					return deferred.reject(httperror.forge('Not found', 404))
+
+				# Post retrieve hook
+				@$$runHook('post_retrieve', 'delete', req, model).then (model) =>
+
+					model.remove (err) ->
+						if err
+							return deferred.reject(httperror.forge(err, 400))
+						return deferred.resolve()
+
+					return deferred.reject(httperror.forge(err.message, err.code))
+				, (err) ->
+					return deferred.reject(httperror.forge(err.message, err.code))
+
+
+					
+		return deferred.promise
+
 
 	$$getPaginationConfig:(req) ->
 		data = req.query
@@ -491,127 +561,3 @@ class Endpoint
 					else
 						filter[query_var]= req.query[query_var]
 		return filter
-
-
-	
-
-	post:(req) ->
-		deferred = Q.defer()
-		data = req.body
-		model = new @modelClass()
-
-		data = @filterData(req, 'save', data)
-		model.set(data)
-
-		if @cascadeRelations.length and model.cascadeSave?
-			model.cascadeSave (err, model) =>
-				if err
-					console.error err
-					deferred.reject(httperror.forge(err, 400))
-				else
-					returnVal = model.toObject()
-					deferred.resolve(returnVal)
-			, 
-				limit:@cascadeRelations
-				filter:@relationsFilter
-		else
-			model.save (err, model) =>
-				if err
-					console.error err
-					deferred.reject(httperror.forge(err, 400))
-				else
-					returnVal = model.toObject()
-					deferred.resolve(returnVal)
-		return deferred.promise
-	
-	put:(req) ->
-		deferred = Q.defer()
-		id = req.params.id
-		if !id
-			deferred.reject(httperror.forge('ID not provided', 400))
-		else
-			# Remove ID from req body
-			data = req.body
-
-
-
-			filter = @filterData(req, 'fetch', {})
-			filter._id = id
-			# We can't use findByIdAndUpdate because we want the pre/post middleware to be executed
-			query = @modelClass.findOne(filter)
-			
-
-
-			query.exec (err, model) =>
-				if err || !model
-					deferred.reject(httperror.forge('Error retrieving document', 404))
-				else 
-
-					if @checks['update']?
-						@checks['update'](req, model).then =>
-							@finishPut(req, model, data, deferred)
-						, (err) ->
-							deferred.reject(httperror.forge('Cannot put', 403))
-
-					else
-						@finishPut(req, model, data, deferred)
-
-						
-					
-
-		return deferred.promise
-				
-	finishPut:(req, model, data, deferred) ->
-		data = @filterData(req, 'save', data)
-		delete data['_id']
-		delete data['__v']
-		model.set(data)
-
-
-		if @cascadeRelations.length and model.cascadeSave?
-			model.cascadeSave (err, model) =>
-				if err
-					return deferred.reject(httperror.forge(err, 400))
-				returnVal = model.toObject()
-				deferred.resolve(returnVal)
-			, 
-				limit:@cascadeRelations
-				filter:@relationsFilter
-		else
-			model.save (err, model) =>
-				if err
-					return deferred.reject(httperror.forge(err, 400))
-				returnVal = model.toObject()
-				deferred.resolve(returnVal)
-	delete:(req) ->
-		deferred = Q.defer()
-		id = req.params.id
-		if !id
-			deferred.reject(httperror.forge('ID not provided', 400))
-		else
-			@modelClass.findById id, (err, model) =>
-				if !model
-					return deferred.reject(httperror.forge('Document not found', 404))
-				if err
-					return deferred.reject(httperror.forge('Error deleting document', 500))
-				if @checks['delete']?
-					@checks['delete'](req, model).then =>
-						@finishDelete(model, deferred)
-					, (err) ->
-						deferred.reject(httperror.forge('No access', 403))
-				else
-					@finishDelete(model, deferred)
-			
-		return deferred.promise
-	finishDelete:(model, deferred) ->
-		model.remove (err) ->
-
-			if err
-				deferred.reject(httperror.forge('Error deleting document', 500))
-			else
-				deferred.resolve()
-
-
-		
-
-module.exports = Endpoint

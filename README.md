@@ -118,10 +118,9 @@ Defaults are overridden by query variables
 new mongooseRestEndpoints.endpoint('/api/pages', 'Page', {
 	// Simply including this configuration will enable pagination
 	pagination:{
-		defaults:{
-			perPage:20,
-			sortField:'title'
-		}
+		perPage:20,
+		sortField:'title'
+		
 	}
 }).register(app);
 ```

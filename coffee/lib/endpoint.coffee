@@ -310,7 +310,7 @@ module.exports = class Endpoint
 		populatePath = (path, doc) ->
 			d = Q.defer()
 			doc.populate path, (err, doc) ->
-				deferred.resolve()
+				d.resolve()
 
 		promises = []
 		for pop in @options.populate

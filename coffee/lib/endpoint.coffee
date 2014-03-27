@@ -5,6 +5,7 @@ _ = require('underscore')
 
 dot = require 'dot-component'
 
+request = require './request'
 
 ###
 Middle ware is separate
@@ -22,7 +23,7 @@ module.exports = class Endpoint
 		@modelId = modelId
 		@$modelClass = mongoose.model(modelId)
 		
-		@$$taps = {}
+		@$taps = {}
 		@options = 
 			queryParams:[]
 			#cascade:
@@ -123,16 +124,16 @@ module.exports = class Endpoint
 		else
 			methods = [method]
 
-		if !@$$taps[hook]
-			@$$taps[hook] = {}
+		if !@$taps[hook]
+			@$taps[hook] = {}
 		for method in methods
-			if !@$$taps[hook][method]
-				@$$taps[hook][method] = []
-			@$$taps[hook][method].push(func)
+			if !@$taps[hook][method]
+				@$taps[hook][method] = []
+			@$taps[hook][method].push(func)
 
 		untap = =>
-			index = @$$taps[hook][method].indexOf(func)
-			@$$taps[hook][method].splice(index, 1)
+			index = @$taps[hook][method].indexOf(func)
+			@$taps[hook][method].splice(index, 1)
 
 		# Do we want to return untap here?
 		return @
@@ -169,372 +170,53 @@ module.exports = class Endpoint
 
 		# Fetch
 		app.get @path + '/:id', @$$middleware.fetch, (req, res) =>
-			@$$fetch(req, res).then (model) =>
-				# Run it through pre-response hooks
-				@$$runHook('pre_response', 'fetch', req, model.toObject()).then (response) =>
-					res.send(response, 200)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
-			, (err) =>
-				@$$runHook('pre_response_error', 'fetch', req, err).then (err) =>
+			new request(@).$fetch(req, res).then (response) ->
+				res.send(response, 200)
+			, (err) ->
+				if err.code
 					res.send(err.message, err.code)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
+				else
+					res.send(500)
 
 		app.get @path, @$$middleware.list, (req, res) =>
-			@$$list(req, res).then (models) =>
-				final = []
-				for model in models
-					final.push(model.toObject())
-				# Run it through pre-response hooks
-				@$$runHook('pre_response', 'list', req, final).then (response) =>
-					res.send(response, 200)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
-			, (err) =>
-				@$$runHook('pre_response_error', 'list', req, err).then (err) =>
+			new request(@).$list(req, res).then (response) ->
+				res.send(response, 200)
+			, (err) ->
+				if err.code
 					res.send(err.message, err.code)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
+				else
+					res.send(500)
 
 		app.post @path, @$$middleware.post, (req, res) =>
-			@$$post(req, res).then (model) =>
-				@$$runHook('pre_response', 'post', req, model.toObject()).then (response) =>
-					res.send(response, 201)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
-			, (err) =>
-				@$$runHook('pre_response_error', 'post', req, err).then (err) =>
+			new request(@).$post(req, res).then (response) ->
+				res.send(response, 201)
+			, (err) ->
+				if err.code
 					res.send(err.message, err.code)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
+				else
+					res.send(500)
+
 
 		app.put @path + '/:id', @$$middleware.put, (req, res) =>
-			@$$put(req, res).then (model) =>
-				@$$runHook('pre_response', 'put', req, model.toObject()).then (response) =>
-					res.send(response, 200)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
-			, (err) =>
-				@$$runHook('pre_response_error', 'put', req, err).then (err) =>
+			new request(@).$put(req, res).then (response) ->
+				res.send(response, 200)
+			, (err) ->
+				if err.code
 					res.send(err.message, err.code)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
+				else
+					res.send(500)
 
 
 		app.delete @path + '/:id', @$$middleware.delete, (req, res) =>
-			@$$delete(req, res).then =>
-				@$$runHook('pre_response', 'delete', req, {}).then ->
-					res.send(200)
-				, (err) ->
-					if err.code
+			new request(@).$delete(req, res).then ->
+				res.send(200)
+			, (err) ->
+				if err.code
 						res.send(err.message, err.code)
-					else
-						res.send(500)
-			, (err) =>
-				@$$runHook('pre_response_error', 'delete', req, err).then (err) =>
-					res.send(err.message, err.code)
-				, (err) ->
-					if err.code
-						res.send(err.message, err.code)
-					else
-						res.send(500)
-	
+				else
+					res.send(500)
 
-	###
-	PRIVATE METHODS
-	###
-	$$runHook:(hook, method, args, mod) ->
-		deferred = Q.defer()
-		
-		runFunction = (f, next, args, data) ->
-			try 
-				ret = _.bind(f, @, args, data, next)()
-				if ret?
-					next(ret)
-			catch err
-				deferred.reject(err)
-
-		if !@$$taps[hook]?
-			deferred.resolve(mod)
-		else if !@$$taps[hook][method]?
-			deferred.resolve(mod)
-		else
-			funcs = @$$taps[hook][method]
-
-			
-			next = (final) ->
-				deferred.resolve(final)
-
-
-			# Run them in order. But we need to reverse them to accommodate the callbacks
-			funcs = funcs.reverse()
-			for func in funcs
-
-				next = _.bind(runFunction, @, func, next, args)
-			
-			next(mod)
-
-		return deferred.promise
-
-	$$populateQuery:(query) ->
-		if @options.populate? and @options.populate.length
-			for pop in @options.populate
-				query.populate(pop)
-	$$populateDocument:(doc) ->
-
-		populatePath = (path, doc) ->
-			d = Q.defer()
-			doc.populate path, (err, doc) ->
-				d.resolve()
-
-		promises = []
-		for pop in @options.populate
-			promises.push(populatePath(pop, doc))
-
-		return Q.all(promises)
-
-	$$fetch:(req, res) ->
-		deferred = Q.defer()
-		id = req.params.id
-
-
-		if !id
-			err = httperror.forge('ID not provided', 400)
-			deferred.reject(err)
-			return deferred.promise
-
-		if !id.match(/^[0-9a-fA-F]{24}$/)
-			err = httperror.forge('Bad ID', 400)
-			deferred.reject(err)
-			return deferred.promise
-
-
-		# Filter the data
-		@$$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
-
-			filter._id = id
-			query = @$modelClass.findOne(filter)
-
-			# Populate
-			@$$populateQuery(query)
-
-			query.exec (err, model) =>
-				if err
-					return deferred.reject(httperror.forge('Error retrieving dcoument', 500))
-				if !model
-					return deferred.reject(httperror.forge('Could not find document', 404))
-				deferred.resolve(model)
-
-
-		return deferred.promise
-
-
-	$$list:(req, res) ->
-		deferred = Q.defer()
-
-		@$$runHook('pre_filter', 'list', req, {}).then (filter) =>
-			query = @$modelClass.find(filter)
-
-			# Populate
-			@$$populateQuery(query)
-
-			if @options.pagination
-				# Get total
-				# 
-				@$modelClass.count filter, (err, count) =>
-					if err
-						return deferred.reject(httperror.forge('Could not retrieve collection', 500))
-
-					res.setHeader('Record-Count', count.toString())
-
-
-					config = @$$getPaginationConfig(req)
-					query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage).exec (err, collection) =>
-
-
-						if err
-							deferred.reject(httperror.forge('Could not retrieve collection', 500))
-						else
-							deferred.resolve(collection)
-
-			else
-
-				query.exec (err, collection) =>
-					if err
-						deferred.reject(httperror.forge('Could not retrieve collection', 500))
-					else
-						deferred.resolve(collection)
-
-			return deferred.promise
-
-
-
-	$$post:(req, res) ->
-		deferred = Q.defer()
-
-		@$$runHook('pre_filter', 'post', req, req.body).then (data) =>
-			model = new @$modelClass(data)
-
-			if @options.cascade?
-				model.cascadeSave (err, model) =>
-					if err
-						deferred.reject(httperror.forge(err, 400))
-					else
-						@$$populateDocument(model).then ->
-							deferred.resolve(model)
-				, 
-					limit:@options.cascade.allowedRelations
-					filter:@options.cascade.filter
-			else
-				model.save (err, model) =>
-					# Populate
-					if err
-						return deferred.reject(httperror.forge(err, 400))
-					@$$populateDocument(model).then ->
-						deferred.resolve(model)
-					
-		return deferred.promise
-
-	$$put:(req, res) ->
-		deferred = Q.defer()
-
-
-		id = req.params.id
-		if !id.match(/^[0-9a-fA-F]{24}$/)
-			deferred.reject(httperror.forge('Bad ID', 400))
-			return deferred.promise
-
-		# The fetch pre filter runs here in case they want to prevent fetching based on
-		# some parameter. Same would apply for this (and delete)
-		@$$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
-
-			filter._id = id
-
-			query = @$modelClass.findOne(filter)
-
-			@$$populateQuery(query)
-			query.exec (err, model) =>
-				if err
-					return deferred.reject(httperror.forge('Server error', 500))
-				if !model
-					return deferred.reject(httperror.forge('Not found', 404))
-
-				# Post retrieve hook
-
-				@$$runHook('post_retrieve', 'put', req, model).then (model) =>
-					# Now parse the data
-					# 
-					data = req.body
-					delete data._id
-					delete data.__v
-					@$$runHook('pre_filter', 'put', req, data).then (data) =>
-						model.set(data)
-
-						if @options.cascade?
-							model.cascadeSave (err, model) =>
-								if err
-									deferred.reject(httperror.forge(err, 400))
-								else
-									@$$populateDocument(model).then ->
-										deferred.resolve(model)
-							, 
-								limit:@options.cascade.allowedRelations
-								filter:@options.cascade.filter
-						else
-							model.save (err, model) =>
-								# Populate
-								if err
-									return deferred.reject(httperror.forge(err, 400))
-								@$$populateDocument(model).then ->
-									deferred.resolve(model)
-				, (err) ->
-					return deferred.reject(httperror.forge(err.message, err.code))
-
-					
-		return deferred.promise
-
-	$$delete:(req, res) ->
-		deferred = Q.defer()
-
-
-		id = req.params.id
-		if !id.match(/^[0-9a-fA-F]{24}$/)
-			deferred.reject(httperror.forge('Bad ID', 400))
-			return deferred.promise
-
-		# The fetch pre filter runs here in case they want to prevent fetching based on
-		# some parameter. Same would apply for this (and delete)
-		@$$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
-			filter._id = id
-			query = @$modelClass.findOne(filter)
-
-			@$$populateQuery(query)
-			query.exec (err, model) =>
-				if err
-					return deferred.reject(httperror.forge('Server error', 500))
-				if !model
-					return deferred.reject(httperror.forge('Not found', 404))
-
-				# Post retrieve hook
-				@$$runHook('post_retrieve', 'delete', req, model).then (model) =>
-
-					model.remove (err) ->
-						if err
-							return deferred.reject(httperror.forge(err, 400))
-						return deferred.resolve()
-
-					return deferred.reject(httperror.forge(err.message, err.code))
-				, (err) ->
-					return deferred.reject(httperror.forge(err.message, err.code))
-
-
-					
-		return deferred.promise
-
-
-	$$getPaginationConfig:(req) ->
-		data = req.query
-
-		result = 
-			perPage:data.perPage
-			page:data.page
-			sortField:data.sortField
-		result.page = parseInt(data.page)
-		if !result.page? or isNaN(result.page) or result.page < 1
-			result.page = 1
-		if !result.perPage?
-			result.perPage = @options.pagination.perPage
-		if !result.sortField?
-			result.sortField = @options.pagination.sortField
-
-		return result
-
-	
+	# Taps run on the request and are bound to request. Hence the @$$endpoint
 	$$constructFilterFromRequest:(req, data, next) ->
 		addToFilter = (filter, prop, key, val) ->
 			if filter[prop]?
@@ -543,8 +225,8 @@ module.exports = class Endpoint
 				filter[prop] = {}
 				filter[prop][key] = val
 		filter = {}
-		if @options.queryParams
-			for query_var in @options.queryParams
+		if @$$endpoint.options.queryParams
+			for query_var in @$$endpoint.options.queryParams
 				if req.query[query_var] and (_.isString(req.query[query_var]) or req.query[query_var] instanceof Date)
 					if query_var.substr(0, 4) is '$lt_'
 						addToFilter(filter, query_var.replace('$lt_', ''), '$lt', req.query[query_var])
@@ -561,3 +243,6 @@ module.exports = class Endpoint
 					else
 						filter[query_var]= req.query[query_var]
 		return filter
+	
+
+	

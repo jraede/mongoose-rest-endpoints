@@ -100,6 +100,7 @@ describe('Fetch', function() {
     it('should retrieve with no hooks', function(done) {
       this.endpoint.register(this.app);
       return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
+        console.log(res.text);
         res.status.should.equal(200);
         res.body.number.should.equal(5);
         res.body.string.should.equal('Test');
@@ -112,6 +113,7 @@ describe('Fetch', function() {
         return data;
       }).register(this.app);
       return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
+        console.log(res.text);
         res.status.should.equal(404);
         return done();
       });

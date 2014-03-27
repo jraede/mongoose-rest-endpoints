@@ -141,6 +141,24 @@ describe('Post', function() {
         return done();
       });
     });
+    it('should handle a thrown error on pre filter', function(done) {
+      var postData;
+      postData = {
+        date: Date.now(),
+        number: 5,
+        string: 'Test'
+      };
+      this.endpoint.tap('pre_filter', 'post', function(req, data, next) {
+        var err;
+        err = new Error('test');
+        err.code = 405;
+        throw err;
+      }).register(this.app);
+      return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
+        res.status.should.equal(405);
+        return done();
+      });
+    });
     return it('should run pre response', function(done) {
       var postData;
       postData = {

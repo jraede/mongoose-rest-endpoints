@@ -124,6 +124,22 @@ describe 'Post', ->
 				res.body.string.should.equal('Test')
 				done()
 
+		it 'should handle a thrown error on pre filter', (done) ->
+			postData = 
+				date:Date.now()
+				number:5
+				string:'Test'
+
+			@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
+				err = new Error('test')
+				err.code = 405
+				throw err
+			.register(@app)
+
+			request(@app).post('/api/posts/').send(postData).end (err, res) ->
+				res.status.should.equal(405)
+				done()
+
 		it 'should run pre response', (done) ->
 			postData = 
 				date:Date.now()

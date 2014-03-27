@@ -224,7 +224,7 @@ module.exports = class Request
 								deferred.resolve(response)
 							, (err) ->
 								deferred.reject(err)
-		, (err) ->
+		, (err) =>
 			@$$runHook('pre_response_error', 'post', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
 				deferred.reject(err)
 			, (err) ->

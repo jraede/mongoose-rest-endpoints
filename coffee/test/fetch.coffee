@@ -84,6 +84,7 @@ describe 'Fetch', ->
 
 			
 			request(@app).get('/api/posts/' + @mod._id).end (err, res) ->
+				console.log res.text
 				res.status.should.equal(200)
 				res.body.number.should.equal(5)
 				res.body.string.should.equal('Test')
@@ -96,6 +97,7 @@ describe 'Fetch', ->
 			.register(@app)
 
 			request(@app).get('/api/posts/' + @mod._id).end (err, res) ->
+				console.log res.text
 				res.status.should.equal(404)
 				done()
 

@@ -73,6 +73,7 @@ mongoose.model('Author', authorSchema);
 mongoose.set('debug', true);
 
 describe('Post', function() {
+  this.timeout(5000);
   describe('Basic object', function() {
     beforeEach(function(done) {
       this.endpoint = new mre('/api/posts', 'Post');
@@ -132,7 +133,7 @@ describe('Post', function() {
       };
       this.endpoint.tap('pre_filter', 'post', function(req, data, next) {
         data.number = 7;
-        return data;
+        return next(data);
       }).register(this.app);
       return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
         res.status.should.equal(201);
@@ -149,10 +150,12 @@ describe('Post', function() {
         string: 'Test'
       };
       this.endpoint.tap('pre_filter', 'post', function(req, data, next) {
-        var err;
-        err = new Error('test');
-        err.code = 405;
-        throw err;
+        return setTimeout(function() {
+          var err;
+          err = new Error('test');
+          err.code = 405;
+          return next(err);
+        }, 2000);
       }).register(this.app);
       return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
         res.status.should.equal(405);
@@ -167,8 +170,11 @@ describe('Post', function() {
         string: 'Test'
       };
       this.endpoint.tap('pre_response', 'post', function(req, data, next) {
-        data.number = 7;
-        return data;
+        setTimeout(function() {
+          data.number = 7;
+          return next(data);
+        }, 2000);
+        return null;
       }).register(this.app);
       return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
         res.status.should.equal(201);

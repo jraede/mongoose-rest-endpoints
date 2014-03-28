@@ -242,7 +242,7 @@ module.exports = class Endpoint
 						addToFilter(filter, query_var.replace('$ne_', ''), '$ne', req.query[query_var])
 					else
 						filter[query_var]= req.query[query_var]
-		return filter
+		next(filter)
 	
 
 	

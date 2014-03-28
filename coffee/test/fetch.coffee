@@ -93,18 +93,17 @@ describe 'Fetch', ->
 		it 'should honor bad pre_filter hook', (done) ->
 			@endpoint.tap 'pre_filter', 'fetch', (args, data, next) ->
 				data.number = 6
-				return data
+				next(data)
 			.register(@app)
 
 			request(@app).get('/api/posts/' + @mod._id).end (err, res) ->
-				console.log res.text
 				res.status.should.equal(404)
 				done()
 
 		it 'should honor good pre_filter hook', (done) ->
 			@endpoint.tap 'pre_filter', 'fetch', (args, data, next) ->
 				data.number = 5
-				return data
+				next(data)
 			.register(@app)
 
 			request(@app).get('/api/posts/' + @mod._id).end (err, res) ->
@@ -124,7 +123,7 @@ describe 'Fetch', ->
 		it 'should honor pre_response_error hook', (done) ->
 			@endpoint.tap 'pre_response_error', 'fetch', (args, err, next) ->
 				err.message = 'Foo'
-				return err
+				next(err)
 			.register(@app)
 
 			# ID must be acceptable otherwise we'll get a 400 instead of 404

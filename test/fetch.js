@@ -110,10 +110,9 @@ describe('Fetch', function() {
     it('should honor bad pre_filter hook', function(done) {
       this.endpoint.tap('pre_filter', 'fetch', function(args, data, next) {
         data.number = 6;
-        return data;
+        return next(data);
       }).register(this.app);
       return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
-        console.log(res.text);
         res.status.should.equal(404);
         return done();
       });
@@ -121,7 +120,7 @@ describe('Fetch', function() {
     it('should honor good pre_filter hook', function(done) {
       this.endpoint.tap('pre_filter', 'fetch', function(args, data, next) {
         data.number = 5;
-        return data;
+        return next(data);
       }).register(this.app);
       return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
         res.status.should.equal(200);
@@ -142,7 +141,7 @@ describe('Fetch', function() {
     return it('should honor pre_response_error hook', function(done) {
       this.endpoint.tap('pre_response_error', 'fetch', function(args, err, next) {
         err.message = 'Foo';
-        return err;
+        return next(err);
       }).register(this.app);
       return request(this.app).get('/api/posts/abcdabcdabcdabcdabcdabcd').end(function(err, res) {
         res.status.should.equal(404);

@@ -95,7 +95,6 @@ describe 'List', ->
 
 			@endpoint.register(@app)
 
-			
 			request(@app).get('/api/posts/').end (err, res) ->
 				res.status.should.equal(200)
 				res.body.length.should.equal(1)

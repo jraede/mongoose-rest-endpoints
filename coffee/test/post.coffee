@@ -58,7 +58,7 @@ mongoose.set 'debug', true
 
 
 describe 'Post', ->
-
+	@timeout(5000)
 	describe 'Basic object', ->
 		beforeEach (done) ->
 			@endpoint = new mre('/api/posts', 'Post')
@@ -115,7 +115,7 @@ describe 'Post', ->
 
 			@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
 				data.number = 7
-				return data
+				next(data)
 			.register(@app)
 
 			request(@app).post('/api/posts/').send(postData).end (err, res) ->
@@ -131,9 +131,11 @@ describe 'Post', ->
 				string:'Test'
 
 			@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
-				err = new Error('test')
-				err.code = 405
-				throw err
+				setTimeout ->
+					err = new Error('test')
+					err.code = 405
+					next(err)
+				, 2000
 			.register(@app)
 
 			request(@app).post('/api/posts/').send(postData).end (err, res) ->
@@ -147,8 +149,11 @@ describe 'Post', ->
 				string:'Test'
 
 			@endpoint.tap 'pre_response', 'post', (req, data, next) ->
-				data.number = 7
-				return data
+				setTimeout ->
+					data.number = 7
+					next(data)
+				, 2000
+				return null
 			.register(@app)
 
 			request(@app).post('/api/posts/').send(postData).end (err, res) ->

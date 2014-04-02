@@ -8,6 +8,8 @@ should = require('should');
 
 Q = require('q');
 
+require('../lib/log').verbose(true);
+
 mongoose = require('mongoose');
 
 mre = require('../lib/endpoint');

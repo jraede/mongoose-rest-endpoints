@@ -4,7 +4,7 @@ should = require 'should'
 Q = require 'q'
 
 mongoose = require 'mongoose'
-
+require('../lib/log').verbose(true)
 moment = require 'moment'
 mre = require '../lib/endpoint'
 # Custom "Post" and "Comment" documents

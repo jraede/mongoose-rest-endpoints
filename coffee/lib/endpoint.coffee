@@ -7,6 +7,9 @@ dot = require 'dot-component'
 
 request = require './request'
 
+log = require('./log')
+
+
 ###
 Middle ware is separate
 
@@ -22,7 +25,7 @@ module.exports = class Endpoint
 		@path = path
 		@modelId = modelId
 		@$modelClass = mongoose.model(modelId)
-		
+		log "Creating endpoint at path: #{path}"
 		@$taps = {}
 		@options = 
 			queryParams:[]
@@ -54,11 +57,14 @@ module.exports = class Endpoint
 	 * @param String field
 	 * @return Endpoint for chaining
 	###
-	populate:(field) ->
+	populate:(field, fields=null) ->
 
+		
 		if field instanceof Array
 			for p in field
 				@options.populate.push(p)
+		else if fields
+			@options.populate.push([field,fields])
 		else
 			@options.populate.push(field)
 		return @
@@ -119,6 +125,7 @@ module.exports = class Endpoint
 	 * @param Function func 	Function to run on hook
 	###
 	tap:(hook, method, func) ->
+		log 'Tapping onto: ', hook.green + '::' + method.green
 		if method is '*'
 			methods = ['fetch','list','create','update','delete']
 		else
@@ -167,9 +174,10 @@ module.exports = class Endpoint
 	 * @param Express app
 	###
 	register: (app) ->
-
+		log 'Registered endpoints for path:', @path.green
 		# Fetch
 		app.get @path + '/:id', @$$middleware.fetch, (req, res) =>
+			log @path.green, 'request to ', 'FETCH'.bold
 			new request(@).$fetch(req, res).then (response) ->
 				res.send(response, 200)
 			, (err) ->
@@ -179,6 +187,7 @@ module.exports = class Endpoint
 					res.send(500)
 
 		app.get @path, @$$middleware.list, (req, res) =>
+			log @path.green, 'request to ', 'LIST'.bold
 			new request(@).$list(req, res).then (response) ->
 				res.send(response, 200)
 			, (err) ->
@@ -188,6 +197,7 @@ module.exports = class Endpoint
 					res.send(500)
 
 		app.post @path, @$$middleware.post, (req, res) =>
+			log @path.green, 'request to ', 'POST'.bold
 			new request(@).$post(req, res).then (response) ->
 				res.send(response, 201)
 			, (err) ->
@@ -198,6 +208,7 @@ module.exports = class Endpoint
 
 
 		app.put @path + '/:id', @$$middleware.put, (req, res) =>
+			log @path.green, 'request to ', 'PUT'.bold
 			new request(@).$put(req, res).then (response) ->
 				res.send(response, 200)
 			, (err) ->
@@ -208,6 +219,7 @@ module.exports = class Endpoint
 
 
 		app.delete @path + '/:id', @$$middleware.delete, (req, res) =>
+			log @path.green, 'request to ', 'DELETE'.bold
 			new request(@).$delete(req, res).then ->
 				res.send(200)
 			, (err) ->

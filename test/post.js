@@ -10,6 +10,8 @@ Q = require('q');
 
 mongoose = require('mongoose');
 
+require('../lib/log').verbose(true);
+
 mre = require('../lib/endpoint');
 
 commentSchema = new mongoose.Schema({

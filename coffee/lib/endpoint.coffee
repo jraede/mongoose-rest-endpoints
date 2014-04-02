@@ -169,6 +169,24 @@ module.exports = class Endpoint
 
 
 	###
+	 * Expose the verb handlers as methods so they can be used in HMVC
+	 *
+	###
+	$fetch: (req, res) ->
+		return new request(@).$fetch(req, res)
+
+	$list: (req, res) ->
+		return new request(@).$list(req, res)
+
+	$post: (req, res) ->
+		return new request(@).$post(req, res)
+
+	$put: (req, res) ->
+		return new request(@).$put(req, res)
+
+	$delete: (req, res) ->
+		return new request(@).$delete(req, res)
+	###
 	 * Register the endpoints on an express app.
 	 * 
 	 * @param Express app
@@ -187,6 +205,7 @@ module.exports = class Endpoint
 					res.send(500)
 
 		app.get @path, @$$middleware.list, (req, res) =>
+
 			log @path.green, 'request to ', 'LIST'.bold
 			new request(@).$list(req, res).then (response) ->
 				res.send(response, 200)
@@ -199,6 +218,7 @@ module.exports = class Endpoint
 		app.post @path, @$$middleware.post, (req, res) =>
 			log @path.green, 'request to ', 'POST'.bold
 			new request(@).$post(req, res).then (response) ->
+
 				res.send(response, 201)
 			, (err) ->
 				if err.code
@@ -208,8 +228,10 @@ module.exports = class Endpoint
 
 
 		app.put @path + '/:id', @$$middleware.put, (req, res) =>
+
 			log @path.green, 'request to ', 'PUT'.bold
 			new request(@).$put(req, res).then (response) ->
+
 				res.send(response, 200)
 			, (err) ->
 				if err.code
@@ -219,8 +241,10 @@ module.exports = class Endpoint
 
 
 		app.delete @path + '/:id', @$$middleware.delete, (req, res) =>
+
 			log @path.green, 'request to ', 'DELETE'.bold
 			new request(@).$delete(req, res).then ->
+
 				res.send(200)
 			, (err) ->
 				if err.code
@@ -231,6 +255,8 @@ module.exports = class Endpoint
 	# Taps run on the request and are bound to request. Hence the @$$endpoint
 	$$constructFilterFromRequest:(req, data, next) ->
 		addToFilter = (filter, prop, key, val) ->
+			if key is '$in' and !(val instanceof Array)
+				val = [val]
 			if filter[prop]?
 				filter[prop][key] = val
 			else

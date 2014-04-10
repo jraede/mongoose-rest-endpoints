@@ -73,6 +73,7 @@ module.exports = class Request
 			d = Q.defer()
 			doc.populate path, (err, doc) ->
 				d.resolve()
+			return d.promise
 
 		promises = []
 		for pop in @$$endpoint.options.populate

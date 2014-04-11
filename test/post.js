@@ -76,119 +76,6 @@ mongoose.set('debug', true);
 
 describe('Post', function() {
   this.timeout(5000);
-  describe('Basic object', function() {
-    beforeEach(function(done) {
-      this.endpoint = new mre('/api/posts', 'Post');
-      this.app = express();
-      this.app.use(express.bodyParser());
-      this.app.use(express.methodOverride());
-      return done();
-    });
-    afterEach(function(done) {
-      mongoose.connection.collections.posts.drop();
-      return done();
-    });
-    it('should let you post with no hooks', function(done) {
-      var data;
-      this.endpoint.register(this.app);
-      data = {
-        date: Date.now(),
-        number: 5,
-        string: 'Test'
-      };
-      return request(this.app).post('/api/posts/').send(data).end(function(err, res) {
-        res.status.should.equal(201);
-        res.body.number.should.equal(5);
-        res.body.string.should.equal('Test');
-        return done();
-      });
-    });
-    it('should run middleware', function(done) {
-      var data,
-        _this = this;
-      this.endpoint.addMiddleware('post', requirePassword('asdf')).register(this.app);
-      data = {
-        date: Date.now(),
-        number: 5,
-        string: 'Test'
-      };
-      return request(this.app).post('/api/posts/').query({
-        password: 'asdf'
-      }).send(data).end(function(err, res) {
-        res.status.should.equal(201);
-        res.body.number.should.equal(5);
-        res.body.string.should.equal('Test');
-        return request(_this.app).post('/api/posts/').query({
-          password: 'ffff'
-        }).send(data).end(function(err, res) {
-          res.status.should.equal(401);
-          return done();
-        });
-      });
-    });
-    it('should run pre filter', function(done) {
-      var postData;
-      postData = {
-        date: Date.now(),
-        number: 5,
-        string: 'Test'
-      };
-      this.endpoint.tap('pre_filter', 'post', function(req, data, next) {
-        data.number = 7;
-        return next(data);
-      }).register(this.app);
-      return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
-        res.status.should.equal(201);
-        res.body.number.should.equal(7);
-        res.body.string.should.equal('Test');
-        return done();
-      });
-    });
-    it('should handle a thrown error on pre filter', function(done) {
-      var postData;
-      postData = {
-        date: Date.now(),
-        number: 5,
-        string: 'Test'
-      };
-      this.endpoint.tap('pre_filter', 'post', function(req, data, next) {
-        return setTimeout(function() {
-          var err;
-          err = new Error('test');
-          err.code = 405;
-          return next(err);
-        }, 2000);
-      }).register(this.app);
-      return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
-        res.status.should.equal(405);
-        return done();
-      });
-    });
-    return it('should run pre response', function(done) {
-      var postData;
-      postData = {
-        date: Date.now(),
-        number: 5,
-        string: 'Test'
-      };
-      this.endpoint.tap('pre_response', 'post', function(req, data, next) {
-        setTimeout(function() {
-          data.number = 7;
-          return next(data);
-        }, 2000);
-        return null;
-      }).register(this.app);
-      return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
-        res.status.should.equal(201);
-        res.body.number.should.equal(7);
-        res.body.string.should.equal('Test');
-        return mongoose.model('Post').findById(res.body._id, function(err, mod) {
-          mod.number.should.equal(5);
-          return done();
-        });
-      });
-    });
-  });
   return describe('Cascading relations', function() {
     beforeEach(function(done) {
       this.endpoint = new mre('/api/posts', 'Post');
@@ -201,12 +88,10 @@ describe('Post', function() {
       mongoose.connection.collections.posts.drop();
       return done();
     });
-    return it('should let you post with relations', function(done) {
-      var data;
-      this.endpoint.cascade(['_comments'], function(data, path) {
-        data.comment += 'FFF';
-        return data;
-      }).register(this.app);
+    return it('should let you post, update, put, update', function(done) {
+      var data,
+        _this = this;
+      this.endpoint.cascade(['_comments']).populate('_comments').register(this.app);
       data = {
         date: Date.now(),
         number: 5,
@@ -220,13 +105,29 @@ describe('Post', function() {
         }
       };
       return request(this.app).post('/api/posts/').send(data).end(function(err, res) {
-        res.status.should.equal(201);
-        res.body.number.should.equal(5);
-        res.body.string.should.equal('Test');
-        res.body._comments.length.should.equal(1);
-        res.body._related._comments.length.should.equal(1);
-        res.body._related._comments[0].comment.should.equal('asdf1234FFF');
-        return done();
+        var post;
+        post = res.body;
+        return mongoose.model('Post').findById(res.body._id).populate('_comments').exec(function(err, post) {
+          console.log('executed');
+          post._related._comments.push({
+            comment: 'ffff5555'
+          });
+          console.log('RELATED:', post._related);
+          try {
+            return post.cascadeSave(function(err) {
+              console.log('Cascade saved...');
+              if (err) {
+                return done(err);
+              } else {
+                console.log('MODEL', model);
+                return done();
+              }
+            });
+          } catch (_error) {
+            err = _error;
+            return console.log(err.stack);
+          }
+        });
       });
     });
   });

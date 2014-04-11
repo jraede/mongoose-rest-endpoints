@@ -192,3 +192,4 @@ describe 'Put', ->
 				res.body._related._comments.length.should.equal(1)
 				res.body._related._comments[0].comment.should.equal('asdf1234FFF')
 				done()
+

@@ -37,7 +37,7 @@
   "devDependencies": {
     "supertest": "~0.8.2",
     "should": "~2.1.1",
-    "cascading-relations": "~0.7.6",
+    "cascading-relations": "~0.7.8",
     "grunt": "~0.4.2",
     "grunt-contrib-coffee": "~0.8.0",
     "grunt-contrib-watch": "~0.5.3",

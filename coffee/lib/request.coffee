@@ -72,6 +72,7 @@ module.exports = class Request
 		populatePath = (path, doc) ->
 			d = Q.defer()
 			doc.populate path, (err, doc) ->
+				console.log 'Populate finished;', doc
 				d.resolve()
 			return d.promise
 
@@ -328,18 +329,13 @@ module.exports = class Request
 											, (err) ->
 												deferred.reject(err)
 										else
-											log 'Cascade saved. Populating'
-											console.log 'MODEL', model
-											@$$runHook('pre_response', 'put', req, model.toObject()).then (response) ->
-												deferred.resolve(response)
-											, (err) ->
-												deferred.reject(err)
-											# @$$populateDocument(model).then =>
-											# 	log 'Populated'
-											# 	@$$runHook('pre_response', 'put', req, model.toObject()).then (response) ->
-											# 		deferred.resolve(response)
-											# 	, (err) ->
-											# 		deferred.reject(err)
+											log 'Cascade saved. Populating', model
+											@$$populateDocument(model).then =>
+												
+												@$$runHook('pre_response', 'put', req, model.toObject()).then (response) ->
+													deferred.resolve(response)
+												, (err) ->
+													deferred.reject(err)
 									, 
 										limit:@$$endpoint.options.cascade.allowedRelations
 										filter:@$$endpoint.options.cascade.filter

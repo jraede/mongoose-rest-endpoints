@@ -203,3 +203,38 @@ describe 'Post', ->
 				res.body._related._comments.length.should.equal(1)
 				res.body._related._comments[0].comment.should.equal('asdf1234FFF')
 				done()
+
+		it 'should let you post, update, put, update', (done) ->
+
+			@endpoint.cascade(['_comments'])
+			.populate('_comments')
+			.register(@app)
+
+
+
+			data = 
+				date:Date.now()
+				number:5
+				string:'Test'
+				_related:
+					_comments:[
+							comment:'asdf1234'
+					]
+
+			console.log 'About to post...'
+			request(@app).post('/api/posts/').send(data).end (err, res) =>
+				post = res.body
+				
+				post._related._comments.push
+					comment:'ffff5555'
+
+							
+				request(@app).put('/api/posts/' + post._id).send(post).end (err, res) ->
+					res.status.should.equal(200)
+					res.body._comments.length.should.equal(2)
+					res.body._related._comments.length.should.equal(2)
+					should.not.exist(res.body._comments[1]._id)
+					res.body._related._comments[0].comment.should.equal('asdf1234')
+					res.body._related._comments[1].comment.should.equal('ffff5555')
+					done()
+	

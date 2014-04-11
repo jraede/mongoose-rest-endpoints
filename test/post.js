@@ -201,7 +201,7 @@ describe('Post', function() {
       mongoose.connection.collections.posts.drop();
       return done();
     });
-    return it('should let you post with relations', function(done) {
+    it('should let you post with relations', function(done) {
       var data;
       this.endpoint.cascade(['_comments'], function(data, path) {
         data.comment += 'FFF';
@@ -227,6 +227,40 @@ describe('Post', function() {
         res.body._related._comments.length.should.equal(1);
         res.body._related._comments[0].comment.should.equal('asdf1234FFF');
         return done();
+      });
+    });
+    return it('should let you post, update, put, update', function(done) {
+      var data,
+        _this = this;
+      this.endpoint.cascade(['_comments']).populate('_comments').register(this.app);
+      data = {
+        date: Date.now(),
+        number: 5,
+        string: 'Test',
+        _related: {
+          _comments: [
+            {
+              comment: 'asdf1234'
+            }
+          ]
+        }
+      };
+      console.log('About to post...');
+      return request(this.app).post('/api/posts/').send(data).end(function(err, res) {
+        var post;
+        post = res.body;
+        post._related._comments.push({
+          comment: 'ffff5555'
+        });
+        return request(_this.app).put('/api/posts/' + post._id).send(post).end(function(err, res) {
+          res.status.should.equal(200);
+          res.body._comments.length.should.equal(2);
+          res.body._related._comments.length.should.equal(2);
+          should.not.exist(res.body._comments[1]._id);
+          res.body._related._comments[0].comment.should.equal('asdf1234');
+          res.body._related._comments[1].comment.should.equal('ffff5555');
+          return done();
+        });
       });
     });
   });

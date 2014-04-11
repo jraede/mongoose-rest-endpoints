@@ -72,6 +72,7 @@ module.exports = class Request
 		populatePath = (path, doc) ->
 			d = Q.defer()
 			doc.populate path, (err, doc) ->
+				console.log 'Populate finished;', doc
 				d.resolve()
 			return d.promise
 
@@ -319,8 +320,8 @@ module.exports = class Request
 								model.set(data)
 								log 'Ran pre filter hook', data
 								if @$$endpoint.options.cascade?
-									log 'Cascade saving'
-									model.cascadeSave (err, model) =>
+									log 'Cascade saving', model._related
+									model.cascadeSave (err) =>
 										if err
 											log 'ERROR:'.red, 'Error during cascade save:', err.message
 											@$$runHook('pre_response_error', 'put', req, httperror.forge(err.message, 400)).then (err) ->
@@ -328,9 +329,9 @@ module.exports = class Request
 											, (err) ->
 												deferred.reject(err)
 										else
-											log 'Cascade saved. Populating'
+											log 'Cascade saved. Populating', model
 											@$$populateDocument(model).then =>
-												log 'Populated'
+												
 												@$$runHook('pre_response', 'put', req, model.toObject()).then (response) ->
 													deferred.resolve(response)
 												, (err) ->

@@ -29,6 +29,9 @@ postSchema = new mongoose.Schema
 			ref:'Comment'
 			$through:'_post'
 	]
+	_author:
+		type:mongoose.Schema.Types.ObjectId
+		ref:'Author'
 
 authorSchema = new mongoose.Schema
 	name:'String'
@@ -59,112 +62,112 @@ mongoose.set 'debug', true
 
 describe 'Post', ->
 	@timeout(5000)
-	describe 'Basic object', ->
-		beforeEach (done) ->
-			@endpoint = new mre('/api/posts', 'Post')
-			@app = express()
-			@app.use(express.bodyParser())
-			@app.use(express.methodOverride())
-			done()
-		afterEach (done) ->
-			# clear out
-			mongoose.connection.collections.posts.drop()
-			done()
-		it 'should let you post with no hooks', (done) ->
+	# describe 'Basic object', ->
+	# 	beforeEach (done) ->
+	# 		@endpoint = new mre('/api/posts', 'Post')
+	# 		@app = express()
+	# 		@app.use(express.bodyParser())
+	# 		@app.use(express.methodOverride())
+	# 		done()
+	# 	afterEach (done) ->
+	# 		# clear out
+	# 		mongoose.connection.collections.posts.drop()
+	# 		done()
+	# 	it 'should let you post with no hooks', (done) ->
 
-			@endpoint.register(@app)
+	# 		@endpoint.register(@app)
 
-			data = 
-				date:Date.now()
-				number:5
-				string:'Test'
+	# 		data = 
+	# 			date:Date.now()
+	# 			number:5
+	# 			string:'Test'
 
-			request(@app).post('/api/posts/').send(data).end (err, res) ->
-				res.status.should.equal(201)
-				res.body.number.should.equal(5)
-				res.body.string.should.equal('Test')
-				done()
+	# 		request(@app).post('/api/posts/').send(data).end (err, res) ->
+	# 			res.status.should.equal(201)
+	# 			res.body.number.should.equal(5)
+	# 			res.body.string.should.equal('Test')
+	# 			done()
 
-		it 'should run middleware', (done) ->
-			@endpoint.addMiddleware('post', requirePassword('asdf')).register(@app)
-			data = 
-				date:Date.now()
-				number:5
-				string:'Test'
+	# 	it 'should run middleware', (done) ->
+	# 		@endpoint.addMiddleware('post', requirePassword('asdf')).register(@app)
+	# 		data = 
+	# 			date:Date.now()
+	# 			number:5
+	# 			string:'Test'
 
 			
 
-			request(@app).post('/api/posts/').query
-				password:'asdf'
-			.send(data).end (err, res) =>
-				res.status.should.equal(201)
-				res.body.number.should.equal(5)
-				res.body.string.should.equal('Test')
+	# 		request(@app).post('/api/posts/').query
+	# 			password:'asdf'
+	# 		.send(data).end (err, res) =>
+	# 			res.status.should.equal(201)
+	# 			res.body.number.should.equal(5)
+	# 			res.body.string.should.equal('Test')
 
-				request(@app).post('/api/posts/').query
-					password:'ffff'
-				.send(data).end (err, res) =>
-					res.status.should.equal(401)
-					done()
+	# 			request(@app).post('/api/posts/').query
+	# 				password:'ffff'
+	# 			.send(data).end (err, res) =>
+	# 				res.status.should.equal(401)
+	# 				done()
 
-		it 'should run pre filter', (done) ->
-			postData = 
-				date:Date.now()
-				number:5
-				string:'Test'
+	# 	it 'should run pre filter', (done) ->
+	# 		postData = 
+	# 			date:Date.now()
+	# 			number:5
+	# 			string:'Test'
 
-			@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
-				data.number = 7
-				next(data)
-			.register(@app)
+	# 		@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
+	# 			data.number = 7
+	# 			next(data)
+	# 		.register(@app)
 
-			request(@app).post('/api/posts/').send(postData).end (err, res) ->
-				res.status.should.equal(201)
-				res.body.number.should.equal(7)
-				res.body.string.should.equal('Test')
-				done()
+	# 		request(@app).post('/api/posts/').send(postData).end (err, res) ->
+	# 			res.status.should.equal(201)
+	# 			res.body.number.should.equal(7)
+	# 			res.body.string.should.equal('Test')
+	# 			done()
 
-		it 'should handle a thrown error on pre filter', (done) ->
-			postData = 
-				date:Date.now()
-				number:5
-				string:'Test'
+	# 	it 'should handle a thrown error on pre filter', (done) ->
+	# 		postData = 
+	# 			date:Date.now()
+	# 			number:5
+	# 			string:'Test'
 
-			@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
-				setTimeout ->
-					err = new Error('test')
-					err.code = 405
-					next(err)
-				, 2000
-			.register(@app)
+	# 		@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
+	# 			setTimeout ->
+	# 				err = new Error('test')
+	# 				err.code = 405
+	# 				next(err)
+	# 			, 2000
+	# 		.register(@app)
 
-			request(@app).post('/api/posts/').send(postData).end (err, res) ->
-				res.status.should.equal(405)
-				done()
+	# 		request(@app).post('/api/posts/').send(postData).end (err, res) ->
+	# 			res.status.should.equal(405)
+	# 			done()
 
-		it 'should run pre response', (done) ->
-			postData = 
-				date:Date.now()
-				number:5
-				string:'Test'
+	# 	it 'should run pre response', (done) ->
+	# 		postData = 
+	# 			date:Date.now()
+	# 			number:5
+	# 			string:'Test'
 
-			@endpoint.tap 'pre_response', 'post', (req, data, next) ->
-				setTimeout ->
-					data.number = 7
-					next(data)
-				, 2000
-				return null
-			.register(@app)
+	# 		@endpoint.tap 'pre_response', 'post', (req, data, next) ->
+	# 			setTimeout ->
+	# 				data.number = 7
+	# 				next(data)
+	# 			, 2000
+	# 			return null
+	# 		.register(@app)
 
-			request(@app).post('/api/posts/').send(postData).end (err, res) ->
-				res.status.should.equal(201)
-				res.body.number.should.equal(7)
-				res.body.string.should.equal('Test')
+	# 		request(@app).post('/api/posts/').send(postData).end (err, res) ->
+	# 			res.status.should.equal(201)
+	# 			res.body.number.should.equal(7)
+	# 			res.body.string.should.equal('Test')
 
-				# Make sure it didn't actually update the post
-				mongoose.model('Post').findById res.body._id, (err, mod) ->
-					mod.number.should.equal(5)
-					done()
+	# 			# Make sure it didn't actually update the post
+	# 			mongoose.model('Post').findById res.body._id, (err, mod) ->
+	# 				mod.number.should.equal(5)
+	# 				done()
 
 
 		
@@ -180,61 +183,85 @@ describe 'Post', ->
 			mongoose.connection.collections.posts.drop()
 			done()
 
-		it 'should let you post with relations', (done) ->
-			@endpoint.cascade ['_comments'], (data, path) ->
-				data.comment += 'FFF'
-				return data
-			.register(@app)
+		# it 'should let you post with relations', (done) ->
+		# 	@endpoint.cascade ['_comments'], (data, path) ->
+		# 		data.comment += 'FFF'
+		# 		return data
+		# 	.register(@app)
 
-			data = 
-				date:Date.now()
-				number:5
-				string:'Test'
-				_related:
-					_comments:[
-							comment:'asdf1234'
-					]
+		# 	data = 
+		# 		date:Date.now()
+		# 		number:5
+		# 		string:'Test'
+		# 		_related:
+		# 			_comments:[
+		# 					comment:'asdf1234'
+		# 			]
 
-			request(@app).post('/api/posts/').send(data).end (err, res) ->
-				res.status.should.equal(201)
-				res.body.number.should.equal(5)
-				res.body.string.should.equal('Test')
-				res.body._comments.length.should.equal(1)
-				res.body._related._comments.length.should.equal(1)
-				res.body._related._comments[0].comment.should.equal('asdf1234FFF')
-				done()
+		# 	request(@app).post('/api/posts/').send(data).end (err, res) ->
+		# 		res.status.should.equal(201)
+		# 		res.body.number.should.equal(5)
+		# 		res.body.string.should.equal('Test')
+		# 		res.body._comments.length.should.equal(1)
+		# 		res.body._related._comments.length.should.equal(1)
+		# 		res.body._related._comments[0].comment.should.equal('asdf1234FFF')
+		# 		done()
 
-		it 'should let you post, update, put, update', (done) ->
+		it 'should let you post with a ref and respond with populated relation', (done) ->
+			@endpoint.populate(['_author', '_comments']).cascade(['_comments']).register(@app)
 
-			@endpoint.cascade(['_comments'])
-			.populate('_comments')
-			.register(@app)
+			aClass = mongoose.model('Author')
+
+			author = new aClass
+				name:'Testy McGee'
+			author.save =>
+				data = 
+					date:Date.now()
+					number:5
+					string:'Test'
+					_author:author._id
+					_related:
+						_comments:[
+								comment:'test'
+						]
+				request(@app).post('/api/posts/').send(data).end (err, res) =>
+					console.log(res.body)
+					should.exist(res.body._related._author._id)
+					
+					done()
+
+
+		# it 'should let you post, update, put, update', (done) ->
+
+		# 	@endpoint.cascade(['_comments'])
+		# 	.populate('_comments')
+		# 	.register(@app)
 
 
 
-			data = 
-				date:Date.now()
-				number:5
-				string:'Test'
-				_related:
-					_comments:[
-							comment:'asdf1234'
-					]
+		# 	data = 
+		# 		date:Date.now()
+		# 		number:5
+		# 		string:'Test'
+		# 		_related:
+		# 			_comments:[
+		# 					comment:'asdf1234'
+		# 			]
 
-			console.log 'About to post...'
-			request(@app).post('/api/posts/').send(data).end (err, res) =>
-				post = res.body
+		# 	console.log 'About to post...'
+		# 	request(@app).post('/api/posts/').send(data).end (err, res) =>
+		# 		post = res.body
 				
-				post._related._comments.push
-					comment:'ffff5555'
+		# 		post._related._comments.push
+		# 			comment:'ffff5555'
 
 							
-				request(@app).put('/api/posts/' + post._id).send(post).end (err, res) ->
-					res.status.should.equal(200)
-					res.body._comments.length.should.equal(2)
-					res.body._related._comments.length.should.equal(2)
-					should.not.exist(res.body._comments[1]._id)
-					res.body._related._comments[0].comment.should.equal('asdf1234')
-					res.body._related._comments[1].comment.should.equal('ffff5555')
-					done()
+		# 		request(@app).put('/api/posts/' + post._id).send(post).end (err, res) ->
+		# 			res.status.should.equal(200)
+		# 			res.body._comments.length.should.equal(2)
+		# 			res.body._related._comments.length.should.equal(2)
+		# 			should.not.exist(res.body._comments[1]._id)
+		# 			res.body._related._comments[0].comment.should.equal('asdf1234')
+		# 			res.body._related._comments[1].comment.should.equal('ffff5555')
+		# 			done()
 	

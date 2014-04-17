@@ -20,14 +20,14 @@ module.exports = class Request
 	$$runHook:(hook, method, args, mod) ->
 		log 'Running hook on ' + hook.green + '::' + method.green
 		deferred = Q.defer()
-		runFunction = (f, next, args, data) ->
+		runFunction = (f, next, a, data) ->
 			log hook.green + '::' + method.green + ' - ', 'Data is now:', data
 			if data instanceof Error
 				return deferred.reject(data)
 			try 
 				# Now you MUST call next explicitly regardless of whether it is sychronous or not. To
 				# avoid confusion with coffee script implicitly returning last value
-				_.bind(f, @, args, data, next)()
+				_.bind(f, @, a, data, next)()
 
 			catch err
 				deferred.reject(err)
@@ -44,14 +44,14 @@ module.exports = class Request
 
 			
 			next = (final) ->
-				log hook.green + '::' + method.green + ' - ', 'running final method'
+				log hook.green + '::' + method.green + ' - ', 'running final method', final
 				if final instanceof Error
 					deferred.reject(final)
 				else
 					deferred.resolve(final)
 
 			# Run them in order. But we need to reverse them to accommodate the callbacks
-			funcs = funcs.reverse()
+			funcs = _.clone(funcs).reverse()
 			for func in funcs
 
 				next = _.bind(runFunction, @, func, next, args)

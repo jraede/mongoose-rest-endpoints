@@ -30,6 +30,8 @@ postSchema = new mongoose.Schema
 			ref:'Comment'
 			$through:'_post'
 	]
+	foo:
+		bar:Number
 
 authorSchema = new mongoose.Schema
 	name:'String'
@@ -272,6 +274,78 @@ describe 'List', ->
 				res.body[0].string.should.equal('z')
 				done()
 
+	describe 'Deep querying', ->
+		beforeEach (done) ->
+			@endpoint = new mre('/api/posts', 'Post')
+			@app = express()
+			@app.use(express.bodyParser())
+			@app.use(express.methodOverride())
+
+			modClass = mongoose.model('Post')
+			mod = modClass
+				date:Date.now()
+				number:5
+				string:'Test'
+				foo:
+					bar:6
+			mod.save (err, res) =>
+				@mod = res
+				done()
+
+		afterEach (done) ->
+			@mod.remove (err, res) ->
+				done()
+
+		it 'should allow deep querying', (done) ->
+			@endpoint.allowQueryParam(['foo.bar']).register(@app)
+
+			request(@app).get('/api/posts/').query
+				'foo.bar':7
+			.end (err, res) ->
+				res.status.should.equal(200)
+				res.body.length.should.equal(0)
+				done()
+
+	describe 'Alternator bug', ->
+		beforeEach (done) ->
+			@endpoint = new mre('/api/posts', 'Post')
+			@app = express()
+			@app.use(express.bodyParser())
+			@app.use(express.methodOverride())
+
+			modClass = mongoose.model('Post')
+			mod = modClass
+				date:Date.now()
+				number:5
+				string:'Test'
+				foo:
+					bar:6
+			mod.save (err, res) =>
+				@mod = res
+				done()
+
+		afterEach (done) ->
+			@mod.remove (err, res) ->
+				done()
+
+		it 'should allow deep querying', (done) ->
+			@endpoint.tap 'pre_filter', 'list', (req, data, next) ->
+				data.number = 6
+				console.log 'Set number to 6'
+				next(data)
+			.register(@app)
+
+			request(@app).get('/api/posts/').end (err, res) =>
+				res.status.should.equal(200)
+				res.body.length.should.equal(0)
+
+				request(@app).get('/api/posts/').end (err, res) =>
+					res.status.should.equal(200)
+					res.body.length.should.equal(0)
+					request(@app).get('/api/posts/').end (err, res) ->
+						res.status.should.equal(200)
+						res.body.length.should.equal(0)
+						done()
 
 
 

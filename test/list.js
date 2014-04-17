@@ -41,7 +41,10 @@ postSchema = new mongoose.Schema({
       ref: 'Comment',
       $through: '_post'
     }
-  ]
+  ],
+  foo: {
+    bar: Number
+  }
 });
 
 authorSchema = new mongoose.Schema({
@@ -233,7 +236,7 @@ describe('List', function() {
       });
     });
   });
-  return describe('Pagination', function() {
+  describe('Pagination', function() {
     beforeEach(function(done) {
       var data, post, promises, _i, _len,
         _this = this;
@@ -312,6 +315,93 @@ describe('List', function() {
         res.body.length.should.equal(2);
         res.body[0].string.should.equal('z');
         return done();
+      });
+    });
+  });
+  describe('Deep querying', function() {
+    beforeEach(function(done) {
+      var mod, modClass,
+        _this = this;
+      this.endpoint = new mre('/api/posts', 'Post');
+      this.app = express();
+      this.app.use(express.bodyParser());
+      this.app.use(express.methodOverride());
+      modClass = mongoose.model('Post');
+      mod = modClass({
+        date: Date.now(),
+        number: 5,
+        string: 'Test',
+        foo: {
+          bar: 6
+        }
+      });
+      return mod.save(function(err, res) {
+        _this.mod = res;
+        return done();
+      });
+    });
+    afterEach(function(done) {
+      return this.mod.remove(function(err, res) {
+        return done();
+      });
+    });
+    return it('should allow deep querying', function(done) {
+      this.endpoint.allowQueryParam(['foo.bar']).register(this.app);
+      return request(this.app).get('/api/posts/').query({
+        'foo.bar': 7
+      }).end(function(err, res) {
+        res.status.should.equal(200);
+        res.body.length.should.equal(0);
+        return done();
+      });
+    });
+  });
+  return describe('Alternator bug', function() {
+    beforeEach(function(done) {
+      var mod, modClass,
+        _this = this;
+      this.endpoint = new mre('/api/posts', 'Post');
+      this.app = express();
+      this.app.use(express.bodyParser());
+      this.app.use(express.methodOverride());
+      modClass = mongoose.model('Post');
+      mod = modClass({
+        date: Date.now(),
+        number: 5,
+        string: 'Test',
+        foo: {
+          bar: 6
+        }
+      });
+      return mod.save(function(err, res) {
+        _this.mod = res;
+        return done();
+      });
+    });
+    afterEach(function(done) {
+      return this.mod.remove(function(err, res) {
+        return done();
+      });
+    });
+    return it('should allow deep querying', function(done) {
+      var _this = this;
+      this.endpoint.tap('pre_filter', 'list', function(req, data, next) {
+        data.number = 6;
+        console.log('Set number to 6');
+        return next(data);
+      }).register(this.app);
+      return request(this.app).get('/api/posts/').end(function(err, res) {
+        res.status.should.equal(200);
+        res.body.length.should.equal(0);
+        return request(_this.app).get('/api/posts/').end(function(err, res) {
+          res.status.should.equal(200);
+          res.body.length.should.equal(0);
+          return request(_this.app).get('/api/posts/').end(function(err, res) {
+            res.status.should.equal(200);
+            res.body.length.should.equal(0);
+            return done();
+          });
+        });
       });
     });
   });

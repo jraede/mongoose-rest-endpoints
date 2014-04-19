@@ -1,4 +1,4 @@
-var Q, authorSchema, cascade, commentSchema, express, mongoose, mre, postSchema, request, requirePassword, should;
+var Q, authorSchema, cascade, commentSchema, express, moment, mongoose, mre, postSchema, request, requirePassword, should, tracker;
 
 express = require('express');
 
@@ -10,10 +10,17 @@ Q = require('q');
 
 mongoose = require('mongoose');
 
+moment = require('moment');
+
+require('../lib/log').verbose(true);
+
+tracker = require('../lib/tracker');
+
 mre = require('../lib/endpoint');
 
 commentSchema = new mongoose.Schema({
   comment: String,
+  otherField: Number,
   _post: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Post'
@@ -110,10 +117,9 @@ describe('Fetch', function() {
     it('should honor bad pre_filter hook', function(done) {
       this.endpoint.tap('pre_filter', 'fetch', function(args, data, next) {
         data.number = 6;
-        return data;
+        return next(data);
       }).register(this.app);
       return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
-        console.log(res.text);
         res.status.should.equal(404);
         return done();
       });
@@ -121,7 +127,7 @@ describe('Fetch', function() {
     it('should honor good pre_filter hook', function(done) {
       this.endpoint.tap('pre_filter', 'fetch', function(args, data, next) {
         data.number = 5;
-        return data;
+        return next(data);
       }).register(this.app);
       return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
         res.status.should.equal(200);
@@ -142,7 +148,7 @@ describe('Fetch', function() {
     return it('should honor pre_response_error hook', function(done) {
       this.endpoint.tap('pre_response_error', 'fetch', function(args, err, next) {
         err.message = 'Foo';
-        return err;
+        return next(err);
       }).register(this.app);
       return request(this.app).get('/api/posts/abcdabcdabcdabcdabcdabcd').end(function(err, res) {
         res.status.should.equal(404);
@@ -198,7 +204,7 @@ describe('Fetch', function() {
       });
     });
   });
-  return describe('Populate', function() {
+  describe('Populate', function() {
     beforeEach(function(done) {
       var mod, modClass,
         _this = this;
@@ -214,7 +220,8 @@ describe('Fetch', function() {
         _related: {
           _comments: [
             {
-              comment: 'Asdf1234'
+              comment: 'Asdf1234',
+              otherField: 5
             }
           ]
         }
@@ -229,7 +236,7 @@ describe('Fetch', function() {
         return done();
       });
     });
-    return it('should populate on _related', function(done) {
+    it('should populate on _related', function(done) {
       this.endpoint.populate('_comments').register(this.app);
       return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
         res.status.should.equal(200);
@@ -238,7 +245,94 @@ describe('Fetch', function() {
         res.body._related._comments.length.should.equal(1);
         res.body._comments.length.should.equal(1);
         res.body._related._comments[0].comment.should.equal('Asdf1234');
+        res.body._related._comments[0].otherField.should.equal(5);
         return done();
+      });
+    });
+    return it('should populate when specifying fields', function(done) {
+      this.endpoint.populate('_comments', 'comment').register(this.app);
+      return request(this.app).get('/api/posts/' + this.mod._id).end(function(err, res) {
+        res.status.should.equal(200);
+        res.body.number.should.equal(5);
+        res.body.string.should.equal('Test');
+        res.body._related._comments.length.should.equal(1);
+        res.body._comments.length.should.equal(1);
+        res.body._related._comments[0].comment.should.equal('Asdf1234');
+        should.not.exist(res.body._related._comments[0].otherField);
+        return done();
+      });
+    });
+  });
+  return describe('Tracking interface', function() {
+    beforeEach(function(done) {
+      this.endpoint = new mre('/api/posts', 'Post');
+      this.app = express();
+      this.app.use(express.bodyParser());
+      this.app.use(express.methodOverride());
+      return done();
+    });
+    afterEach(function(done) {
+      if (this.mod) {
+        return this.mod.remove(function() {
+          return done();
+        });
+      } else {
+        return done();
+      }
+    });
+    it('should run tracking interface on success', function(done) {
+      var mod, modClass,
+        _this = this;
+      modClass = mongoose.model('Post');
+      mod = modClass({
+        date: Date.now(),
+        number: 5,
+        string: 'Test'
+      });
+      return mod.save(function(err, res) {
+        _this.mod = res;
+        tracker["interface"] = {
+          track: function(params) {
+            console.log('Tracking params', params);
+            params.response.code.should.equal(200);
+            (params.time < 50).should.equal(true);
+            return done();
+          }
+        };
+        _this.endpoint.register(_this.app);
+        return request(_this.app).get('/api/posts/' + _this.mod._id).end(function(err, res) {
+          return console.log('Ended');
+        });
+      });
+    });
+    it('should run tracking interface on error', function(done) {
+      tracker["interface"] = {
+        track: function(params) {
+          console.log('Tracking params:', params);
+          params.response.code.should.equal(400);
+          (params.time < 50).should.equal(true);
+          return done();
+        }
+      };
+      this.endpoint.register(this.app);
+      return request(this.app).get('/api/posts/asdf').end(function(err, res) {
+        return console.log('Ended');
+      });
+    });
+    return it('should calculate time based on X-Request-Start header', function(done) {
+      var requestStart;
+      tracker["interface"] = {
+        track: function(params) {
+          params.response.code.should.equal(400);
+          params.time.should.be.greaterThan(100);
+          params.time.should.be.lessThan(200);
+          return done();
+        }
+      };
+      this.endpoint.register(this.app);
+      requestStart = moment().valueOf() - 100;
+      return request(this.app).get('/api/posts/asdf').set('X-Request-Start', requestStart.toString()).end(function(err, res) {
+        return console.log('Ended');
       });
     });
   });

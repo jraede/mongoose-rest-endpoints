@@ -7,6 +7,13 @@ dot = require 'dot-component'
 
 request = require './request'
 
+log = require('./log')
+
+moment = require 'moment'
+
+tracker = require './tracker'
+
+hooks = require 'hooks'
 ###
 Middle ware is separate
 
@@ -22,7 +29,7 @@ module.exports = class Endpoint
 		@path = path
 		@modelId = modelId
 		@$modelClass = mongoose.model(modelId)
-		
+		log "Creating endpoint at path: #{path}"
 		@$taps = {}
 		@options = 
 			queryParams:[]
@@ -54,11 +61,14 @@ module.exports = class Endpoint
 	 * @param String field
 	 * @return Endpoint for chaining
 	###
-	populate:(field) ->
+	populate:(field, fields=null) ->
 
+		
 		if field instanceof Array
 			for p in field
 				@options.populate.push(p)
+		else if fields
+			@options.populate.push([field,fields])
 		else
 			@options.populate.push(field)
 		return @
@@ -119,6 +129,7 @@ module.exports = class Endpoint
 	 * @param Function func 	Function to run on hook
 	###
 	tap:(hook, method, func) ->
+		log 'Tapping onto: ', hook.green + '::' + method.green
 		if method is '*'
 			methods = ['fetch','list','create','update','delete']
 		else
@@ -162,63 +173,142 @@ module.exports = class Endpoint
 
 
 	###
+	 * Expose the verb handlers as methods so they can be used in HMVC
+	 *
+	###
+	$fetch: (req, res) ->
+		return new request(@).$fetch(req, res)
+
+	$list: (req, res) ->
+		return new request(@).$list(req, res)
+
+	$post: (req, res) ->
+		return new request(@).$post(req, res)
+
+	$put: (req, res) ->
+		return new request(@).$put(req, res)
+
+	$delete: (req, res) ->
+		return new request(@).$delete(req, res)
+
+	$$trackingMiddleware:(endpoint) ->
+		return (req,res,next) ->
+			for k,v of hooks
+				res[k] = hooks[k]
+
+			path = endpoint.path
+			if req.header('X-Request-Start')
+				startTime = moment(parseInt(req.header('X-Request-Start')))
+			else
+				startTime = moment()
+
+
+			# Replace the res.send method so we can track the elapsed time
+			res.$mre =
+				startTime:startTime
+
+				# Requests will set this
+				method:null
+			# Every response in MRE has code,data arguments
+			
+			res.post 'end', (next, data) ->
+				code = @statusCode
+				elapsed = moment().diff(@$mre.startTime)
+				tracker.track
+					time:elapsed
+					endpoint:path
+					url:req.originalUrl
+					method:@$mre.method
+					response:
+						code:code
+						success: if code >= 200 and code < 300 then true else false
+						error:if code >= 400 and data? then data else null
+				next()
+
+			next()
+
+
+
+
+	###
 	 * Register the endpoints on an express app.
 	 * 
 	 * @param Express app
 	###
 	register: (app) ->
+		log 'Registered endpoints for path:', @path.green
 
+		for k,v of @$$middleware
+			v.unshift(@$$trackingMiddleware(@))
 		# Fetch
 		app.get @path + '/:id', @$$middleware.fetch, (req, res) =>
+			res.$mre.method = 'fetch'
+			log @path.green, 'request to ', 'FETCH'.bold
 			new request(@).$fetch(req, res).then (response) ->
-				res.send(response, 200)
+
+				log 'About to send.'
+				res.send(200, response)
 			, (err) ->
 				if err.code
-					res.send(err.message, err.code)
+					res.send(err.code, err.message)
 				else
 					res.send(500)
 
 		app.get @path, @$$middleware.list, (req, res) =>
+			res.$mre.method = 'list'
+			log @path.green, 'request to ', 'LIST'.bold
 			new request(@).$list(req, res).then (response) ->
-				res.send(response, 200)
+
+				res.send(200, response)
 			, (err) ->
 				if err.code
-					res.send(err.message, err.code)
+					res.send(err.code, err.message)
 				else
 					res.send(500)
 
 		app.post @path, @$$middleware.post, (req, res) =>
+			res.$mre.method = 'post'
+			log @path.green, 'request to ', 'POST'.bold
 			new request(@).$post(req, res).then (response) ->
-				res.send(response, 201)
+
+				res.send(201, response)
 			, (err) ->
 				if err.code
-					res.send(err.message, err.code)
+					res.send(err.code, err.message)
 				else
 					res.send(500)
 
 
 		app.put @path + '/:id', @$$middleware.put, (req, res) =>
+			res.$mre.method = 'put'
+			log @path.green, 'request to ', 'PUT'.bold
 			new request(@).$put(req, res).then (response) ->
-				res.send(response, 200)
+
+				res.send(200, response)
 			, (err) ->
 				if err.code
-					res.send(err.message, err.code)
+					res.send(err.code, err.message)
 				else
 					res.send(500)
 
 
-		app.delete @path + '/:id', @$$middleware.delete, (req, res) =>
+		app.delete @path + '/:id',@$$middleware.delete, (req, res) =>
+			res.$mre.method = 'delete'
+			log @path.green, 'request to ', 'DELETE'.bold
 			new request(@).$delete(req, res).then ->
+
 				res.send(200)
 			, (err) ->
 				if err.code
-						res.send(err.message, err.code)
+						res.send(err.code, err.message)
 				else
 					res.send(500)
 
 	# Taps run on the request and are bound to request. Hence the @$$endpoint
 	$$constructFilterFromRequest:(req, data, next) ->
 		addToFilter = (filter, prop, key, val) ->
+			if key is '$in' and !(val instanceof Array)
+				val = [val]
 			if filter[prop]?
 				filter[prop][key] = val
 			else
@@ -242,7 +332,7 @@ module.exports = class Endpoint
 						addToFilter(filter, query_var.replace('$ne_', ''), '$ne', req.query[query_var])
 					else
 						filter[query_var]= req.query[query_var]
-		return filter
+		next(filter)
 	
 
 	

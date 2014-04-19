@@ -215,6 +215,7 @@ module.exports = class Endpoint
 				code = @statusCode
 				elapsed = moment().diff(@$mre.startTime)
 				tracker.track
+					request:req
 					time:elapsed
 					endpoint:path
 					url:req.originalUrl

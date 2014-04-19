@@ -4,5 +4,6 @@ module.exports =
 	httperror:require('./lib/httperror')
 	request:require('./lib/request')
 	tracker:require('./lib/tracker')
+	log:require('./lib/log')
 
 		

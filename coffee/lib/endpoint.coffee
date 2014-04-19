@@ -46,11 +46,12 @@ module.exports = class Endpoint
 
 
 		@$$middleware = 
-			fetch:[]
-			list:[]
-			post:[]
-			put:[]
-			delete:[]
+			fetch:[@$$trackingMiddleware(@)]
+			list:[@$$trackingMiddleware(@)]
+			post:[@$$trackingMiddleware(@)]
+			put:[@$$trackingMiddleware(@)]
+			delete:[@$$trackingMiddleware(@)]
+
 
 		# We want to tap into the list to use our default filtering function for req.query
 		@tap('pre_filter', 'list', @$$constructFilterFromRequest)
@@ -239,8 +240,6 @@ module.exports = class Endpoint
 	register: (app) ->
 		log 'Registered endpoints for path:', @path.green
 
-		for k,v of @$$middleware
-			v.unshift(@$$trackingMiddleware(@))
 		# Fetch
 		app.get @path + '/:id', @$$middleware.fetch, (req, res) =>
 			res.$mre.method = 'fetch'

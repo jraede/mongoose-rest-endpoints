@@ -223,7 +223,7 @@ module.exports = class Endpoint
 					method:@$mre.method
 					response:
 						code:code
-						success: if code >= 200 and code < 300 then true else false
+						success: if code >= 200 and code < 400 then true else false
 						error:if code >= 400 and data? then data else null
 				next()
 

@@ -138,7 +138,7 @@ Default endpoint URLs are:
 * POST: {BASE_URL}
 * PUT: {BASE_URL}/{_ID}
 * GET (single): {BASE_URL}/{_ID}
-* GET (list): {BASE_URL}/list
+* GET (list): {BASE_URL}
 * DELETE: {BASE_URL}/{_ID}
 
 If you want to add your own you can extend the base `endPoint` class and add your custom methods (and make sure you register them as well).

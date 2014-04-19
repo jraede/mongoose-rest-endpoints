@@ -143,3 +143,103 @@ Default endpoint URLs are:
 
 If you want to add your own you can extend the base `endPoint` class and add your custom methods (and make sure you register them as well).
 
+### Taps
+Taps are a way to run code at various points in the request/response process of a particular endpoint. If you want to stop the request from going through, you must call the `next()` function with an error. Otherwise, call the `next()` function with the modified or unmodified data.
+
+By default, failed taps send a `500` response code. If you want the system to issue a different status code, you can set a `code` parameter on the `Error` object. E.g.: 
+
+```javascript
+var error = new Error('You cannot do this!');
+error.code = 403;
+next(error);
+```
+
+All tap functions have the same general arguments: the original request object, the data going through the tap stack, and `next()` for passing the data to the next function in the stack.
+
+#### Tap Hooks
+There are X tap hooks in the stack:
+
+
+##### `pre_filter`
+In FETCH/LIST requests, used to modify query parameters being passed to Mongo (runs after the query parameters are parsed and put into the filter). In POST/PUT requestss, used to modify incoming data before it gets set on the document. Note that the `pre_filter::fetch` hook will run before fetching a document to be modified in a `PUT` request. 
+
+```javascript
+endpoint.tap('pre_filter', 'list', function(req, query, next) {
+  query.newVal = 'foo';
+  next(query);
+});
+```
+Mongo query will be `db.{collection}.find({newVal:'foo'});`
+
+
+##### `post_retrieve`
+Only runs in PUT and DELETE requests. Runs after the document is retrieved but before it is modified - useful for requiring a certain relationship between logged-in user and document (e.g. make sure the user is an administrator or "owns" the object)
+
+```javascript
+endpoint.tap('post_retrieve', 'put', function(req, document, next) {
+  if(document._owner != req.user._id) {
+    var error = new Error('Unauthorized');
+    error.code = 403;
+    return next(error);
+  }
+  next(document);
+});
+```
+
+##### `pre_response`
+Used to manipulate data after it has been retrieved but before it is sent back to the client. This runs after the Mongoose document has been converted with `toJSON()`.
+
+```javascript
+endpoint.tap('pre_response', 'fetch', function(req, data, next) {
+  if(req.user.role != 'administrator') {
+    delete data['some_proprietary_field'];
+  }
+  return next(data);
+});
+```
+
+##### `pre_response_error`
+Used to manipulate an error response before it is sent back to the client.
+
+```javascript
+endpoint.tap('pre_response_error', 'post', function(req, error, next) {
+  if(error.code && error.code == 403) {
+    error.message = 'This is an alternate message for 403, which will replace the generic express "Forbidden"';
+  }
+  next(error);
+});
+```
+
+## Logging
+You can turn on `verbose` mode to see the internal logs of your endpoints:
+
+`require('mongoose-rest-endpoints').log.verbose(true);`
+
+All log lines are prefixed with `[MRE]`.
+
+## Tracking
+As of version 3.3, this package tracks the response time for requests to your endpoints. If you use Heroku, the start time will be the value of the `X-Request-Start` header, which is the time the request reached the Heroku router, rather than your actual Dyno. Otherwise the start time will be the current unix offset.
+
+By default there is no tracking interface - you are expected to add your own, with a `track` method. To add a tracking interface:
+
+```javascript
+require('mongoose-rest-endpoints').tracker.interface = {
+  /**
+   * Params are:
+   * `request` - The original express request object
+   * `time` - The total time elapsed, in milliseconds
+   * `url` - The absolute URL used in the request
+   * `method` - The [MRE] method (fetch, list, post, put, delete)
+   * `response` - {
+   *    `code` - The response code
+   *    `success` - Boolean, true response code was successful (200-level), false if not.
+   *    `error` - If there was an error, the error object will be here
+   * }
+
+  track:function(params) {
+    // Store in a log somewhere
+  }
+}
+```
+
+I am in the middle of writing a Keen IO driver for this tracking with an automated alert system, so I will post a link to it here when I finish. In the meantime it should not be too difficult to integrate with your own tracking solution.

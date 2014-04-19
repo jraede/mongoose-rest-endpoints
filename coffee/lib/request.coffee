@@ -4,6 +4,18 @@ httperror = require './httperror'
 
 log = require('./log')
 
+
+moment = require 'moment'
+
+# Internal function for retrieving the start time of the request. If the server provides X-Request-Start (e.g. Heroku), use that to be more accurate
+getStartTime = (req) ->
+	if req.headers('X-Request-Start')
+		startTime = moment(req.headers('X-Request-Start'))
+	else
+		startTime = moment()
+	return startTime
+
+
 module.exports = class Request
 	constructor:(endpoint, modelClass = null) ->
 		log 'Forged request'
@@ -14,9 +26,8 @@ module.exports = class Request
 
 		@$$endpoint = endpoint
 
-	###
-	PRIVATE METHODS
-	###
+	
+
 	$$runHook:(hook, method, args, mod) ->
 		log 'Running hook on ' + hook.green + '::' + method.green
 		deferred = Q.defer()

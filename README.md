@@ -188,7 +188,7 @@ Mongo query will be `db.{collection}.find({newVal:'foo'});`
 
 
 ##### `pre_save`
-This is used only in POST and BULKPOST requests. Similar to `pre_filter`, but object passed through is the document before it is saved.
+This is used only in POST, BULKPOST, and PUT requests. Similar to `pre_filter`, but object passed through is the document before it is saved.
 
 ##### `post_retrieve`
 Only runs in PUT and DELETE requests. Runs after the document is retrieved but before it is modified - useful for requiring a certain relationship between logged-in user and document (e.g. make sure the user is an administrator or "owns" the object). If you want to do a `pre_save` tap on a PUT request, use this instead.

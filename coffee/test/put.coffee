@@ -145,6 +145,28 @@ describe 'Put', ->
 					res.status.should.equal(200)
 					done()
 
+		it 'should honor pre_save fetch hook', (done) ->
+			@endpoint.tap 'pre_save', 'put', (req, model, next) ->
+				if req.query.test isnt 'test'
+					err = new Error('Test')
+					err.code = 401
+					throw err
+				else
+					next(model)
+			.register(@app)
+
+			data = @mod.toObject()
+
+			data.number = 6;
+			id = data._id
+			request(@app).put('/api/posts/' + id).send(data).end (err, res) =>
+				res.status.should.equal(401)
+				request(@app).put('/api/posts/' + id).query
+					test:'test'
+				.send(data).end (err, res) =>
+					res.status.should.equal(200)
+					done()
+
 
 	
 

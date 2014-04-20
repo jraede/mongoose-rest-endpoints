@@ -396,9 +396,8 @@ module.exports = class Request
 							delete data._id
 							delete data.__v
 							log 'Ran post retrieve hook', model.toObject()
-							@$$runHook('pre_filter', 'put', req, data).then (data) =>
-								model.set(data)
-								log 'Ran pre filter hook', data
+							model.set(data)
+							@$$runHook('pre_save', 'put', req, model).then (model) =>
 								if @$$endpoint.options.cascade?
 									log 'Cascade saving', model._related
 									model.cascadeSave (err) =>
@@ -437,6 +436,11 @@ module.exports = class Request
 													deferred.resolve(response)
 												, (err) ->
 													deferred.reject(err)
+							, (err) =>
+								@$$runHook('pre_response_error', 'put', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
+									deferred.reject(err)
+								, (err) ->
+									deferred.reject(err)
 						, (err) =>
 							@$$runHook('pre_response_error', 'put', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
 								deferred.reject(err)

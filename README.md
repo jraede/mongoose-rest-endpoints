@@ -176,7 +176,7 @@ There are X tap hooks in the stack:
 
 
 ##### `pre_filter`
-In FETCH/LIST requests, used to modify query parameters being passed to Mongo (runs after the query parameters are parsed and put into the filter). In POST/PUT requestss, used to modify incoming data before it gets set on the document. Note that the `pre_filter::fetch` hook will run before fetching a document to be modified in a `PUT` request. 
+Used in FETCH/LIST requests to modify query parameters being passed to Mongo (runs after the query parameters are parsed and put into the filter). Also used in PUT and DELETE requests to modify the query used to retrieve the document.
 
 ```javascript
 endpoint.tap('pre_filter', 'list', function(req, query, next) {
@@ -187,8 +187,11 @@ endpoint.tap('pre_filter', 'list', function(req, query, next) {
 Mongo query will be `db.{collection}.find({newVal:'foo'});`
 
 
+##### `pre_save`
+This is used only in POST and BULKPOST requests. Similar to `pre_filter`, but object passed through is the document before it is saved.
+
 ##### `post_retrieve`
-Only runs in PUT and DELETE requests. Runs after the document is retrieved but before it is modified - useful for requiring a certain relationship between logged-in user and document (e.g. make sure the user is an administrator or "owns" the object)
+Only runs in PUT and DELETE requests. Runs after the document is retrieved but before it is modified - useful for requiring a certain relationship between logged-in user and document (e.g. make sure the user is an administrator or "owns" the object). If you want to do a `pre_save` tap on a PUT request, use this instead.
 
 ```javascript
 endpoint.tap('post_retrieve', 'put', function(req, document, next) {

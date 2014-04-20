@@ -134,24 +134,6 @@ describe('Post', function() {
         });
       });
     });
-    it('should run pre filter', function(done) {
-      var postData;
-      postData = {
-        date: Date.now(),
-        number: 5,
-        string: 'Test'
-      };
-      this.endpoint.tap('pre_filter', 'post', function(req, data, next) {
-        data.number = 7;
-        return next(data);
-      }).register(this.app);
-      return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
-        res.status.should.equal(201);
-        res.body.number.should.equal(7);
-        res.body.string.should.equal('Test');
-        return done();
-      });
-    });
     it('should run pre save', function(done) {
       var postData;
       postData = {
@@ -170,14 +152,14 @@ describe('Post', function() {
         return done();
       });
     });
-    it('should handle a thrown error on pre filter', function(done) {
+    it('should handle a thrown error on pre save', function(done) {
       var postData;
       postData = {
         date: Date.now(),
         number: 5,
         string: 'Test'
       };
-      this.endpoint.tap('pre_filter', 'post', function(req, data, next) {
+      this.endpoint.tap('pre_save', 'post', function(req, model, next) {
         return setTimeout(function() {
           var err;
           err = new Error('test');

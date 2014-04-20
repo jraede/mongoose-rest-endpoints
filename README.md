@@ -20,8 +20,10 @@ Each endpoint has 5 different request types:
 * *FETCH* - retrieves a single document based on ID
 * *LIST* - retrieves a list of documents that match a query
 * *POST* - creates a new document
+* *BULKPOST* - creates multiple new documents
 * *PUT* - updates an existing document, based on ID
 * *DELETE* - deletes an existing document, based on ID
+
 
 
 ## How to set up an endpoint
@@ -105,6 +107,16 @@ endpoint.cascade(['_comments'], function(commentData, schemaPath) {
 });
 ```
 
+### Bulk posting
+Bulk posting is disabled by default. To allow it, run `allowBulkPost()` on your endpoint before registering. The response code for a bulk post will be a 201 unless ALL saves failed, in which case the code will be the code for the first error. The response body will be an array of the results of each promise, structured like so:
+
+`[
+  {state:'fulfilled',value:undefined}, // No response, so it will be undefined. You only care about the state
+  {state:'rejected', reason:{}} // The reason will be the error thrown
+]`
+
+You can use this response to show which requests failed and which succeeded in the bulk request (the order of the returned values will be the same order that they came in).
+
 ### Pagination
 By default, endpoints paginate results at 50 per page, ordered by the `_id` field. Note that this is the opposite of the `2.*` API, which did *not* paginate results unless you told it to.
 
@@ -138,6 +150,7 @@ Finally, register it to your express app, which will set up the URL routes used 
 Default endpoint URLs are:
 
 * POST: {BASE_URL}
+* BULKPOST: {BASE_URL}/bulk
 * PUT: {BASE_URL}/{_ID}
 * GET (single): {BASE_URL}/{_ID}
 * GET (list): {BASE_URL}
@@ -228,15 +241,15 @@ By default there is no tracking interface - you are expected to add your own, wi
 require('mongoose-rest-endpoints').tracker.interface = {
   /**
    * Params are:
-   * `request` - The original express request object
-   * `time` - The total time elapsed, in milliseconds
-   * `url` - The absolute URL used in the request
-   * `method` - The [MRE] method (fetch, list, post, put, delete)
-   * `response` - {
-   *    `code` - The response code
-   *    `success` - Boolean, true response code was successful (200-level), false if not.
-   *    `error` - If there was an error, the error object will be here
-   * }
+   * request - The original express request object
+   * time - The total time elapsed, in milliseconds
+   * url - The absolute URL used in the request
+   * method - The [MRE] method (fetch, list, post, put, delete)
+   * response - {
+   *    code - The response code
+   *    success - Boolean, true response code was successful (200-level), false if not.
+   *    error - If there was an error, the error object will be here
+   */ }
 
   track:function(params) {
     // Store in a log somewhere
@@ -245,3 +258,4 @@ require('mongoose-rest-endpoints').tracker.interface = {
 ```
 
 I am in the middle of writing a Keen IO driver for this tracking with an automated alert system, so I will post a link to it here when I finish. In the meantime it should not be too difficult to integrate with your own tracking solution.
+

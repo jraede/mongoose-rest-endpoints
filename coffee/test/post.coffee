@@ -111,22 +111,6 @@ describe 'Post', ->
 					res.status.should.equal(401)
 					done()
 
-		it 'should run pre filter', (done) ->
-			postData = 
-				date:Date.now()
-				number:5
-				string:'Test'
-
-			@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
-				data.number = 7
-				next(data)
-			.register(@app)
-
-			request(@app).post('/api/posts/').send(postData).end (err, res) ->
-				res.status.should.equal(201)
-				res.body.number.should.equal(7)
-				res.body.string.should.equal('Test')
-				done()
 
 		it 'should run pre save', (done) ->
 			postData = 
@@ -145,13 +129,13 @@ describe 'Post', ->
 				res.body.string.should.equal('Test')
 				done()
 
-		it 'should handle a thrown error on pre filter', (done) ->
+		it 'should handle a thrown error on pre save', (done) ->
 			postData = 
 				date:Date.now()
 				number:5
 				string:'Test'
 
-			@endpoint.tap 'pre_filter', 'post', (req, data, next) ->
+			@endpoint.tap 'pre_save', 'post', (req, model, next) ->
 				setTimeout ->
 					err = new Error('test')
 					err.code = 405

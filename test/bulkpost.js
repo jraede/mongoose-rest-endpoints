@@ -96,7 +96,7 @@ describe('Post', function() {
       mongoose.connection.collections.posts.drop();
       return done();
     });
-    it('should let you bulk post with no hooks', function(done) {
+    return it('should let you bulk post with no hooks', function(done) {
       var data;
       this.endpoint.allowBulkPost().register(this.app);
       data = [
@@ -112,52 +112,6 @@ describe('Post', function() {
       ];
       return request(this.app).post('/api/posts/bulk').send(data).end(function(err, res) {
         res.status.should.equal(201);
-        return done();
-      });
-    });
-    it('should correctly handle errors', function(done) {
-      var data;
-      this.endpoint.allowBulkPost().register(this.app);
-      data = [
-        {
-          date: Date.now(),
-          number: 5,
-          string: 'Test'
-        }, {
-          date: Date.now(),
-          number: 8
-        }, {
-          date: Date.now(),
-          number: 7
-        }
-      ];
-      return request(this.app).post('/api/posts/bulk').send(data).end(function(err, res) {
-        res.status.should.equal(207);
-        res.body[0].state.should.equal('fulfilled');
-        res.body[1].state.should.equal('rejected');
-        res.body[2].state.should.equal('rejected');
-        res.body[1].reason.message.message.should.equal('Validation failed');
-        res.body[2].reason.message.message.should.equal('Validation failed');
-        return done();
-      });
-    });
-    return it('should have the first error code if they are all errors', function(done) {
-      var data;
-      this.endpoint.allowBulkPost().register(this.app);
-      data = [
-        {
-          date: Date.now(),
-          number: 5
-        }, {
-          date: Date.now(),
-          number: 8
-        }, {
-          date: Date.now(),
-          number: 7
-        }
-      ];
-      return request(this.app).post('/api/posts/bulk').send(data).end(function(err, res) {
-        res.status.should.equal(400);
         return done();
       });
     });

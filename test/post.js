@@ -152,6 +152,24 @@ describe('Post', function() {
         return done();
       });
     });
+    it('should run pre save', function(done) {
+      var postData;
+      postData = {
+        date: Date.now(),
+        number: 5,
+        string: 'Test'
+      };
+      this.endpoint.tap('pre_save', 'post', function(req, model, next) {
+        model.set('number', 8);
+        return next(model);
+      }).register(this.app);
+      return request(this.app).post('/api/posts/').send(postData).end(function(err, res) {
+        res.status.should.equal(201);
+        res.body.number.should.equal(8);
+        res.body.string.should.equal('Test');
+        return done();
+      });
+    });
     it('should handle a thrown error on pre filter', function(done) {
       var postData;
       postData = {

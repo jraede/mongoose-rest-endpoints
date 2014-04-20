@@ -282,6 +282,63 @@ module.exports = class Request
 					
 		return deferred.promise
 
+
+	$$doBulkPostForSingle:(obj, req) ->
+		deferred = Q.defer()
+		@$$runHook('pre_filter', 'post', req, obj).then (data) =>
+			log 'Successfuly ran pre_filter hook: ', JSON.stringify(data)
+			model = new @$$modelClass(data)
+			
+			log 'Saving normally (no cascade allowed on bulkpost)'
+			model.save (err, model) =>
+				if err
+					log 'ERROR:'.red, 'Save failed:', err.message
+					@$$runHook('pre_response_error', 'post', req, httperror.forge(err, 400)).then (err) ->
+						deferred.reject(err)
+					, (err) ->
+						deferred.reject(err)
+				else
+					log 'Finished save, resolving'
+					deferred.resolve()
+		, (err) =>
+			log 'ERROR:'.red, 'Error running pre_filter hook: ', err.message
+			@$$runHook('pre_response_error', 'post', req, httperror.forge(err, if err.code? then err.code else 500)).then (err) ->
+				deferred.reject(err)
+			, (err) ->
+				deferred.reject(err)
+		return deferred.promise
+
+	# No cascade or populate on this, make it as light as possible
+	$bulkpost:(req, res) ->
+		deferred = Q.defer()
+		log 'Running ' + 'BULKPOST'.bold
+
+		if !(req.body instanceof Array)
+			log 'ERROR:'.red, 'Request body not array'
+			@$$runHook('pre_response_error', 'bulkpost', req, httperror.forge('Request body is not an array', 400)).then (err) ->
+				deferred.reject(err)
+			, (err) ->
+				deferred.reject(err)
+		else
+			promises = []
+			for obj in req.body
+				promises.push(@$$doBulkPostForSingle(obj, req))
+
+			Q.allSettled(promises).then (results) ->
+
+				# If there is at least one fulfilled, we still issue a 201 (resolved). However, resolve with the results here so the client can do what it wants
+				resolved = false
+				for res in results
+					if res.state is 'fulfilled'
+						log 'Got one promise fulfilled, resolving.'
+						return deferred.resolve(results)
+
+				if results[0].reason?
+					results.code = results[0].reason.code
+				deferred.reject(results)
+					
+		return deferred.promise
+
 	$put:(req, res) ->
 		deferred = Q.defer()
 		log 'Running ' + 'PUT'.bold

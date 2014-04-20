@@ -172,6 +172,12 @@ module.exports = class Endpoint
 		return @
 
 
+	###
+	 * Enable bulk post for this endpoint.
+	###
+	allowBulkPost:->
+		@options.allowBulkPost = true
+		return @
 
 	###
 	 * Expose the verb handlers as methods so they can be used in HMVC
@@ -278,6 +284,20 @@ module.exports = class Endpoint
 				else
 					res.send(500)
 
+		# Bulk post
+		if @options.allowBulkPost
+			app.post @path + '/bulk', @$$middleware.post, (req, res) =>
+				res.$mre.method = 'bulkpost'
+				log @path.green, 'request to ', 'BULKPOST'.bold
+
+
+				new request(@).$bulkpost(req, res).then (response) ->
+					res.send(201, response)
+				, (err) ->
+					if err.code
+						res.send(err.code, err.message)
+					else
+						res.send(500)
 
 		app.put @path + '/:id', @$$middleware.put, (req, res) =>
 			res.$mre.method = 'put'

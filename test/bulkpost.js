@@ -132,7 +132,7 @@ describe('Post', function() {
         }
       ];
       return request(this.app).post('/api/posts/bulk').send(data).end(function(err, res) {
-        res.status.should.equal(201);
+        res.status.should.equal(207);
         res.body[0].state.should.equal('fulfilled');
         res.body[1].state.should.equal('rejected');
         res.body[2].state.should.equal('rejected');

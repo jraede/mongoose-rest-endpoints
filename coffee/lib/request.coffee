@@ -326,12 +326,21 @@ module.exports = class Request
 
 			Q.allSettled(promises).then (results) ->
 
-				# If there is at least one fulfilled, we still issue a 201 (resolved). However, resolve with the results here so the client can do what it wants
-				resolved = false
-				for res in results
-					if res.state is 'fulfilled'
-						log 'Got one promise fulfilled, resolving.'
-						return deferred.resolve(results)
+				# If there is a mix, issue a 207 (a code we made up), to signify that some were accepted and some weren't. Otherwise resolve with a 201
+				resolvedCount = 0
+				rejectedCount = 0
+				for result in results
+					if result.state is 'fulfilled'
+						resolvedCount++
+					else
+						rejectedCount++
+							
+
+				if resolvedCount and !rejectedCount
+					return deferred.resolve()
+				else if resolvedCount
+					results.code = 207
+					return deferred.reject(results)
 
 				if results[0].reason?
 					results.code = results[0].reason.code

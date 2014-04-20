@@ -111,9 +111,8 @@ describe 'Post', ->
 				
 
 			request(@app).post('/api/posts/bulk').send(data).end (err, res) ->
-				
 				# One succeeded. So we should get a 201. HOWEVER, the second two elements in the array should have status as rejected, with the appropriate code and message
-				res.status.should.equal(201)
+				res.status.should.equal(207)
 				res.body[0].state.should.equal('fulfilled')
 				res.body[1].state.should.equal('rejected')
 				res.body[2].state.should.equal('rejected')

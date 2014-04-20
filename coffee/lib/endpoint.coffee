@@ -295,7 +295,7 @@ module.exports = class Endpoint
 					res.send(201, response)
 				, (err) ->
 					if err.code
-						res.send(err.code, err.message)
+						res.send(err.code, err)
 					else
 						res.send(500)
 

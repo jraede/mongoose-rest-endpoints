@@ -330,6 +330,10 @@ module.exports = class Endpoint
 						addToFilter(filter, query_var.replace('$in_', ''), '$in', req.query[query_var])
 					else if query_var.substr(0,4) is '$ne_'
 						addToFilter(filter, query_var.replace('$ne_', ''), '$ne', req.query[query_var])
+					else if query_var.substr(0,7) is '$regex_'
+						addToFilter(filter, query_var.replace('$regex_', ''), '$regex', new RegExp(req.query[query_var]))
+					else if query_var.substr(0,8) is '$regexi_'
+						addToFilter(filter, query_var.replace('$regexi_', ''), '$regex', new RegExp(req.query[query_var], 'i'))
 					else
 						filter[query_var]= req.query[query_var]
 		next(filter)

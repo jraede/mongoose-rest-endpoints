@@ -235,44 +235,52 @@ module.exports = class Request
 		@$$runHook('pre_filter', 'post', req, req.body).then (data) =>
 			log 'Successfuly ran pre_filter hook: ', JSON.stringify(data)
 			model = new @$$modelClass(data)
-			if @$$endpoint.options.cascade?
-				log 'Running cascade save'
-				model.cascadeSave (err, model) =>
-					if err
-						log 'ERROR:'.red, 'Cascade save failed:', err.message
-						@$$runHook('pre_response_error', 'post', req, httperror.forge(err, 400)).then (err) ->
-							deferred.reject(err)
-						, (err) ->
-							deferred.reject(err)
-					else
-						log 'Finished cascade save. Populating'
-						@$$populateDocument(model).then =>
-							log 'Populated'
-							@$$runHook('pre_response', 'post', req, model.toObject()).then (response) ->
-								deferred.resolve(response)
+
+			@$$runHook('pre_save', 'post', req, model).then (model) =>
+				if @$$endpoint.options.cascade?
+					log 'Running cascade save'
+					model.cascadeSave (err, model) =>
+						if err
+							log 'ERROR:'.red, 'Cascade save failed:', err.message
+							@$$runHook('pre_response_error', 'post', req, httperror.forge(err, 400)).then (err) ->
+								deferred.reject(err)
 							, (err) ->
 								deferred.reject(err)
-				, 
-					limit:@$$endpoint.options.cascade.allowedRelations
-					filter:@$$endpoint.options.cascade.filter
-			else
-				log 'Saving normally (no cascade)'
-				model.save (err, model) =>
-					# Populate
-					if err
-						log 'ERROR:'.red, 'Save failed:', err.message
-						@$$runHook('pre_response_error', 'post', req, httperror.forge(err, 400)).then (err) ->
-							deferred.reject(err)
-						, (err) ->
-							deferred.reject(err)
-					else
-						log 'Finished save. Populating'
-						@$$populateDocument(model).then =>
-							log 'Populated'
-							@$$runHook('pre_response', 'post', req, model.toObject()).then (response) ->
-								deferred.resolve(response)
+						else
+							log 'Finished cascade save. Populating'
+							@$$populateDocument(model).then =>
+								log 'Populated'
+								@$$runHook('pre_response', 'post', req, model.toObject()).then (response) ->
+									deferred.resolve(response)
+								, (err) ->
+									deferred.reject(err)
+					, 
+						limit:@$$endpoint.options.cascade.allowedRelations
+						filter:@$$endpoint.options.cascade.filter
+				else
+					log 'Saving normally (no cascade)'
+					model.save (err, model) =>
+						# Populate
+						if err
+							log 'ERROR:'.red, 'Save failed:', err.message
+							@$$runHook('pre_response_error', 'post', req, httperror.forge(err, 400)).then (err) ->
+								deferred.reject(err)
 							, (err) ->
 								deferred.reject(err)
+						else
+							log 'Finished save. Populating'
+							@$$populateDocument(model).then =>
+								log 'Populated'
+								@$$runHook('pre_response', 'post', req, model.toObject()).then (response) ->
+									deferred.resolve(response)
+								, (err) ->
+									deferred.reject(err)
+			, (err) =>
+				log 'ERROR:'.red, 'Error running pre_save hook: ', err.message
+				@$$runHook('pre_response_error', 'post', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
+					deferred.reject(err)
+				, (err) ->
+					deferred.reject(err)
 		, (err) =>
 			log 'ERROR:'.red, 'Error running pre_filter hook: ', err.message
 			@$$runHook('pre_response_error', 'post', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
@@ -285,24 +293,31 @@ module.exports = class Request
 
 	$$doBulkPostForSingle:(obj, req) ->
 		deferred = Q.defer()
-		@$$runHook('pre_filter', 'post', req, obj).then (data) =>
+		@$$runHook('pre_filter', 'bulkpost', req, obj).then (data) =>
 			log 'Successfuly ran pre_filter hook: ', JSON.stringify(data)
 			model = new @$$modelClass(data)
 			
 			log 'Saving normally (no cascade allowed on bulkpost)'
-			model.save (err, model) =>
-				if err
-					log 'ERROR:'.red, 'Save failed:', err.message
-					@$$runHook('pre_response_error', 'post', req, httperror.forge(err, 400)).then (err) ->
-						deferred.reject(err)
-					, (err) ->
-						deferred.reject(err)
-				else
-					log 'Finished save, resolving'
-					deferred.resolve()
+			@$$runHook('pre_save', 'bulkpost', req, model).then (model) =>
+				model.save (err, model) =>
+					if err
+						log 'ERROR:'.red, 'Save failed:', err.message
+						@$$runHook('pre_response_error', 'bulkpost', req, httperror.forge(err, 400)).then (err) ->
+							deferred.reject(err)
+						, (err) ->
+							deferred.reject(err)
+					else
+						log 'Finished save, resolving'
+						deferred.resolve()
+			, (err) =>
+				log 'ERROR:'.red, 'Error running pre_save hook: ', err.message
+				@$$runHook('pre_response_error', 'bulkpost', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
+					deferred.reject(err)
+				, (err) ->
+					deferred.reject(err)
 		, (err) =>
 			log 'ERROR:'.red, 'Error running pre_filter hook: ', err.message
-			@$$runHook('pre_response_error', 'post', req, httperror.forge(err, if err.code? then err.code else 500)).then (err) ->
+			@$$runHook('pre_response_error', 'bulkpost', req, httperror.forge(err, if err.code? then err.code else 500)).then (err) ->
 				deferred.reject(err)
 			, (err) ->
 				deferred.reject(err)

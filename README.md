@@ -66,6 +66,8 @@ This defines which parameters from the query string are passed through as filter
 * `$gte_` - Greater than or equal to
 * `$in_` - Value is contained in given array
 * `$ne_` - Value is not equal to provided value.
+* `$regex_` - Value matches a regular expression
+* `$regexi_` - Value matches a case-insensitve regular expression
 
 #### Example:
 

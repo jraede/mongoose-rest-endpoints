@@ -143,10 +143,36 @@ describe('Put', function() {
         return done();
       });
     });
-    return it('should honor post_retrieve fetch hook', function(done) {
+    it('should honor post_retrieve fetch hook', function(done) {
       var data, id,
         _this = this;
       this.endpoint.tap('post_retrieve', 'put', function(req, model, next) {
+        var err;
+        if (req.query.test !== 'test') {
+          err = new Error('Test');
+          err.code = 401;
+          throw err;
+        } else {
+          return next(model);
+        }
+      }).register(this.app);
+      data = this.mod.toObject();
+      data.number = 6;
+      id = data._id;
+      return request(this.app).put('/api/posts/' + id).send(data).end(function(err, res) {
+        res.status.should.equal(401);
+        return request(_this.app).put('/api/posts/' + id).query({
+          test: 'test'
+        }).send(data).end(function(err, res) {
+          res.status.should.equal(200);
+          return done();
+        });
+      });
+    });
+    return it('should honor pre_save fetch hook', function(done) {
+      var data, id,
+        _this = this;
+      this.endpoint.tap('pre_save', 'put', function(req, model, next) {
         var err;
         if (req.query.test !== 'test') {
           err = new Error('Test');

@@ -93,51 +93,51 @@ describe 'Post', ->
 				res.status.should.equal(201)
 				done()
 
-		# it 'should correctly handle errors', (done) ->
+		it 'should correctly handle errors', (done) ->
 
-		# 	@endpoint.allowBulkPost().register(@app)
+			@endpoint.allowBulkPost().register(@app)
 
-		# 	data = [
-		# 			date:Date.now()
-		# 			number:5
-		# 			string:'Test'
-		# 		,
-		# 			date:Date.now()
-		# 			number:8
-		# 		,
-		# 			date:Date.now()
-		# 			number:7
-		# 	]
+			data = [
+					date:Date.now()
+					number:5
+					string:'Test'
+				,
+					date:Date.now()
+					number:8
+				,
+					date:Date.now()
+					number:7
+			]
 				
 
-		# 	request(@app).post('/api/posts/bulk').send(data).end (err, res) ->
-		# 		# One succeeded. So we should get a 201. HOWEVER, the second two elements in the array should have status as rejected, with the appropriate code and message
-		# 		res.status.should.equal(207)
-		# 		res.body[0].state.should.equal('fulfilled')
-		# 		res.body[1].state.should.equal('rejected')
-		# 		res.body[2].state.should.equal('rejected')
-		# 		res.body[1].reason.message.message.should.equal('Validation failed')
-		# 		res.body[2].reason.message.message.should.equal('Validation failed')
-		# 		done()
+			request(@app).post('/api/posts/bulk').send(data).end (err, res) ->
+				# One succeeded. So we should get a 201. HOWEVER, the second two elements in the array should have status as rejected, with the appropriate code and message
+				res.status.should.equal(207)
+				res.body[0].state.should.equal('fulfilled')
+				res.body[1].state.should.equal('rejected')
+				res.body[2].state.should.equal('rejected')
+				res.body[1].reason.message.message.should.equal('Validation failed')
+				res.body[2].reason.message.message.should.equal('Validation failed')
+				done()
 
-		# it 'should have the first error code if they are all errors', (done) ->
-		# 	@endpoint.allowBulkPost().register(@app)
+		it 'should have the first error code if they are all errors', (done) ->
+			@endpoint.allowBulkPost().register(@app)
 
-		# 	data = [
-		# 			date:Date.now()
-		# 			number:5
-		# 		,
-		# 			date:Date.now()
-		# 			number:8
-		# 		,
-		# 			date:Date.now()
-		# 			number:7
-		# 	]
+			data = [
+					date:Date.now()
+					number:5
+				,
+					date:Date.now()
+					number:8
+				,
+					date:Date.now()
+					number:7
+			]
 				
 
-		# 	request(@app).post('/api/posts/bulk').send(data).end (err, res) ->
+			request(@app).post('/api/posts/bulk').send(data).end (err, res) ->
 				
-		# 		res.status.should.equal(400)
-		# 		done()
+				res.status.should.equal(400)
+				done()
 
 		

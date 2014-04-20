@@ -327,7 +327,7 @@ module.exports = class Request
 			for obj in req.body
 				promises.push(@$$doBulkPostForSingle(obj, req))
 
-			Q.allSettled(promises).then (results) ->
+			Q.allSettled(promises).then (results) =>
 
 				# If there is a mix, issue a 207 (a code we made up), to signify that some were accepted and some weren't. Otherwise resolve with a 201
 				resolvedCount = 0
@@ -340,10 +340,17 @@ module.exports = class Request
 							
 
 				if resolvedCount and !rejectedCount
-					return deferred.resolve()
+					log('Running pre response post hook')
+					return @$$runHook('pre_response', 'bulkpost', req, results).then (results) ->
+						deferred.resolve()
+					, (err) ->
+						deferred.reject(err)
 				else if resolvedCount
 					results.code = 207
-					return deferred.reject(results)
+					return @$$runHook('pre_response', 'bulkpost', req, results).then (results) ->
+						deferred.reject(results)
+					, (err) ->
+						deferred.reject(err)
 
 				if results[0].reason?
 					results.code = results[0].reason.code

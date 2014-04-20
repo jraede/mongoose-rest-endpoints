@@ -50,6 +50,7 @@ module.exports = class Endpoint
 			list:[@$$trackingMiddleware(@)]
 			post:[@$$trackingMiddleware(@)]
 			put:[@$$trackingMiddleware(@)]
+			bulkpost:[@$$trackingMiddleware(@)]
 			delete:[@$$trackingMiddleware(@)]
 
 
@@ -162,6 +163,8 @@ module.exports = class Endpoint
 		if method is 'all' or method is '*'
 			for m in ['list','fetch','post','put','delete']
 				@addMiddleware(m, middleware)
+			if @options.allowBulkPost
+				@addMiddleware('bulkpost', middleware)
 		else
 			if middleware instanceof Array
 				for m in middleware
@@ -286,7 +289,7 @@ module.exports = class Endpoint
 
 		# Bulk post
 		if @options.allowBulkPost
-			app.post @path + '/bulk', @$$middleware.post, (req, res) =>
+			app.post @path + '/bulk', @$$middleware.bulkpost, (req, res) =>
 				res.$mre.method = 'bulkpost'
 				log @path.green, 'request to ', 'BULKPOST'.bold
 

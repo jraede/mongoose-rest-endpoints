@@ -108,7 +108,7 @@ endpoint.cascade(['_comments'], function(commentData, schemaPath) {
 ```
 
 ### Bulk posting
-Bulk posting is disabled by default. To allow it, run `allowBulkPost()` on your endpoint before registering. The response code for a bulk post will be a 201 unless ALL saves failed, in which case the code will be the code for the first error. The response body will be an array of the results of each promise, structured like so:
+Bulk posting is disabled by default. To allow it, run `allowBulkPost()` on your endpoint before registering. The response code for a bulk post will be a 201 if ALL saves were successful, with no response body. Otherwise if some failed and some were successful, the code will be a 207. Or if everything failed, the response code will be the error code for the first error. For these two "error" instances, the response body will be an array of the results of each promise, structured like so:
 
 `[
   {state:'fulfilled',value:undefined}, // No response, so it will be undefined. You only care about the state

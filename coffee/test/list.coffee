@@ -163,6 +163,35 @@ describe 'List', ->
 				res.body[0].number.should.equal(10)
 				done()
 
+		it 'should do a regex search', (done) ->
+			@endpoint.allowQueryParam('$regex_string').register(@app)
+			request(@app).get('/api/posts/').query
+				'$regex_string':'tes'
+			.end (err, res) =>
+				res.status.should.equal(200)
+				res.body.length.should.equal(0)
+				request(@app).get('/api/posts/').query
+					'$regex_string':'Tes'
+				.end (err, res) =>
+					res.status.should.equal(200)
+					res.body.length.should.equal(1)
+					done()
+
+		it 'should do a case insensitive regex search', (done) ->
+
+			@endpoint.allowQueryParam('$regexi_string').register(@app)
+			request(@app).get('/api/posts/').query
+				'$regexi_string':'tes'
+			.end (err, res) =>
+				res.status.should.equal(200)
+				res.body.length.should.equal(1)
+				request(@app).get('/api/posts/').query
+					'$regexi_string':'Tes'
+				.end (err, res) =>
+					res.status.should.equal(200)
+					res.body.length.should.equal(1)
+					done()
+
 	
 	describe 'Populate', ->
 		beforeEach (done) ->

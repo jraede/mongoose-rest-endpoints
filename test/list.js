@@ -176,7 +176,7 @@ describe('List', function() {
         });
       });
     });
-    return it('should work with pre_response hook', function(done) {
+    it('should work with pre_response hook', function(done) {
       var _this = this;
       this.endpoint.tap('pre_response', 'list', function(req, collection, next) {
         var col, _i, _len;
@@ -190,6 +190,40 @@ describe('List', function() {
         res.body.length.should.equal(1);
         res.body[0].number.should.equal(10);
         return done();
+      });
+    });
+    it('should do a regex search', function(done) {
+      var _this = this;
+      this.endpoint.allowQueryParam('$regex_string').register(this.app);
+      return request(this.app).get('/api/posts/').query({
+        '$regex_string': 'tes'
+      }).end(function(err, res) {
+        res.status.should.equal(200);
+        res.body.length.should.equal(0);
+        return request(_this.app).get('/api/posts/').query({
+          '$regex_string': 'Tes'
+        }).end(function(err, res) {
+          res.status.should.equal(200);
+          res.body.length.should.equal(1);
+          return done();
+        });
+      });
+    });
+    return it('should do a case insensitive regex search', function(done) {
+      var _this = this;
+      this.endpoint.allowQueryParam('$regexi_string').register(this.app);
+      return request(this.app).get('/api/posts/').query({
+        '$regexi_string': 'tes'
+      }).end(function(err, res) {
+        res.status.should.equal(200);
+        res.body.length.should.equal(1);
+        return request(_this.app).get('/api/posts/').query({
+          '$regexi_string': 'Tes'
+        }).end(function(err, res) {
+          res.status.should.equal(200);
+          res.body.length.should.equal(1);
+          return done();
+        });
       });
     });
   });

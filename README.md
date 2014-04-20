@@ -7,7 +7,7 @@ Easy REST api endpoint creation for express and mongoose documents
 
 ## What is this?
 
-There are obviously a bunch of packages available on NPM that let you set up REST endpoints for Mongoose documents. The problem with these is that they start by opening up *everything* to the client, and you are expected to *close* areas that need more security. The potential for missing something in this is pretty high, especially if you have a complex application. This package, by contract, *closes* everything to the client by default, and you are expected to *open* each specific endpoint beyond its basic functionality, meaning you get complete control over what happens with and who can access your data.
+There are obviously a bunch of packages available on NPM that let you set up REST endpoints for Mongoose documents. The problem with these is that they start by opening up *everything* to the client, and you are expected to *close* areas that need more security. The potential for missing something in this is pretty high, especially if you have a complex application. This package, by contrast, *closes* everything to the client by default, and you are expected to *open* each specific endpoint beyond its basic functionality, meaning you get complete control over what happens with and who can access your data.
 
 ## Installation
 
@@ -138,7 +138,7 @@ Default endpoint URLs are:
 * POST: {BASE_URL}
 * PUT: {BASE_URL}/{_ID}
 * GET (single): {BASE_URL}/{_ID}
-* GET (list): {BASE_URL}/list
+* GET (list): {BASE_URL}
 * DELETE: {BASE_URL}/{_ID}
 
 If you want to add your own you can extend the base `endPoint` class and add your custom methods (and make sure you register them as well).

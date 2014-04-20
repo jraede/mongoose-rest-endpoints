@@ -1,6 +1,7 @@
 {
   "name": "mongoose-rest-endpoints",
   "version": "3.4.0",
+  
   "description": "Easy REST endpoint creation for Mongoose documents with Express",
   "main": "index.js",
   "scripts": {

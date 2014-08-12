@@ -28,7 +28,10 @@ module.exports = class Endpoint
 	constructor:(path, modelId, opts) ->
 		@path = path
 		@modelId = modelId
-		@$modelClass = mongoose.model(modelId)
+		if typeof modelId is 'string'
+			@$modelClass = mongoose.model(modelId)
+		else 
+			@$modelClass = modelId
 		log "Creating endpoint at path: #{path}"
 		@$taps = {}
 		@options = 

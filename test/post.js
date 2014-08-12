@@ -86,7 +86,7 @@ describe('Post', function() {
   this.timeout(5000);
   describe('Basic object', function() {
     beforeEach(function(done) {
-      this.endpoint = new mre('/api/posts', 'Post');
+      this.endpoint = new mre('/api/posts', mongoose.model('Post'));
       this.app = express();
       this.app.use(express.bodyParser());
       this.app.use(express.methodOverride());

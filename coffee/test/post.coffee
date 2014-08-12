@@ -65,7 +65,7 @@ describe 'Post', ->
 	@timeout(5000)
 	describe 'Basic object', ->
 		beforeEach (done) ->
-			@endpoint = new mre('/api/posts', 'Post')
+			@endpoint = new mre('/api/posts', mongoose.model('Post'))
 			@app = express()
 			@app.use(express.bodyParser())
 			@app.use(express.methodOverride())

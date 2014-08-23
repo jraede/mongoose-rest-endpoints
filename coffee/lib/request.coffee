@@ -139,10 +139,12 @@ module.exports = class Request
 							deferred.reject(err)
 	
 					else
-						@$$runHook('pre_response', 'fetch', req, model.toObject()).then (response) =>
-							deferred.resolve(response)
-						, (err) ->
-							deferred.reject(err)
+						@$$runHook('post_retrieve', 'fetch', req, model).then (model) =>
+							@$$runHook('pre_response', 'fetch', req, model.toObject()).then (response) =>
+								deferred.resolve(response)
+							, (err) ->
+								deferred.reject(err)
+						.fail(deferred.reject).done()
 			, (err) =>
 				log 'ERROR:'.red, 'Error running pre_filter hook: ', err.message
 				@$$runHook('pre_response_error', 'fetch', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
@@ -193,13 +195,15 @@ module.exports = class Request
 									deferred.reject(err)
 								deferred.reject(httperror.forge('Could not retrieve collection', 500))
 							else
-								final = []
-								for f in collection
-									final.push(f.toObject())
-								@$$runHook('pre_response', 'list', req, final).then (response) ->
-									deferred.resolve(response)
-								, (err) ->
-									deferred.reject(err)
+								@$$runHook('post_retrieve', 'list', req, collection).then (collection) =>
+									final = []
+									for f in collection
+										final.push(f.toObject())
+									@$$runHook('pre_response', 'list', req, final).then (response) ->
+										deferred.resolve(response)
+									, (err) ->
+										deferred.reject(err)
+								.fail(deferred.reject).done()
 
 			else
 				log 'No pagination, getting all results'
@@ -212,13 +216,17 @@ module.exports = class Request
 							deferred.reject(err)
 						deferred.reject(httperror.forge('Could not retrieve collection', 500))
 					else
-						final = []
-						for f in collection
-							final.push(f.toObject())
-						@$$runHook('pre_response', 'list', req, final).then (response) ->
-							deferred.resolve(response)
-						, (err) ->
-							deferred.reject(err)
+
+						@$$runHook('post_retrieve', 'list', req, collection).then (collection) =>
+
+							final = []
+							for f in collection
+								final.push(f.toObject())
+							@$$runHook('pre_response', 'list', req, final).then (response) ->
+								deferred.resolve(response)
+							, (err) ->
+								deferred.reject(err)
+						.fail(deferred.reject).done()
 		, (err) =>
 			log 'ERROR:'.red, 'Error running pre_filter hook: ', err.message
 			@$$runHook('pre_response_error', 'list', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->

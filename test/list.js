@@ -147,6 +147,15 @@ describe('List', function() {
         return done();
       });
     });
+    it('should fetch only specified fields', function(done) {
+      this.endpoint.limitFields(['string', 'date']).register(this.app);
+      return request(this.app).get('/api/posts').end(function(err, res) {
+        res.body.length.should.equal(1);
+        res.body[0].string.should.equal('Test');
+        should.not.exist(res.body[0].number);
+        return done();
+      });
+    });
     it('should work with default query hook', function(done) {
       var _this = this;
       this.endpoint.allowQueryParam(['$gte_number', '$lte_number', '$gte_date', '$lte_date']).register(this.app);

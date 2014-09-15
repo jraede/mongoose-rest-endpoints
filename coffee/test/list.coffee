@@ -121,6 +121,17 @@ describe 'List', ->
 			.end (err, res) ->
 				res.status.should.equal(401)
 				done()
+
+		it 'should fetch only specified fields', (done) ->
+			@endpoint.limitFields(['string', 'date']).register(@app)
+
+			request(@app).get('/api/posts').end (err, res) ->
+				res.body.length.should.equal(1)
+				res.body[0].string.should.equal('Test')
+				should.not.exist(res.body[0].number)
+				done()
+
+
 		it 'should work with default query hook', (done) ->
 			@endpoint.allowQueryParam(['$gte_number', '$lte_number', '$gte_date', '$lte_date']).register(@app)
 

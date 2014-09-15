@@ -95,6 +95,15 @@ module.exports = class Endpoint
 		return @
 
 	###
+	 * Fetch only specific fields in a list request
+	 *
+	 * @param Array of fields
+	###
+	limitFields:(fields) ->
+		@options.limitFields = fields
+		return @
+
+	###
 	 * Set cascade parameters for playing nicely with cascading-relations package
 	 *
 	 * @param Array allowed 		Allowed relation paths

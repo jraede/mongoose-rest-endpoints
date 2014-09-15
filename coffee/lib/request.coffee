@@ -184,6 +184,9 @@ module.exports = class Request
 
 
 						config = @$$getPaginationConfig(req)
+
+						if @$$endpoint.options.limitFields?
+							query.select(@$$endpoint.options.limitFields.join(' '))
 						query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage).exec (err, collection) =>
 
 

@@ -136,6 +136,8 @@ describe 'Fetch', ->
 				res.status.should.equal(404)
 				res.text.should.equal('Foo')
 				done()
+
+
 		
 	describe 'With middleware', ->
 		beforeEach (done) ->

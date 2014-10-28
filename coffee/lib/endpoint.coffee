@@ -14,6 +14,9 @@ moment = require 'moment'
 tracker = require './tracker'
 
 hooks = require 'hooks'
+
+minimatch = require('minimatch')
+
 ###
 Middle ware is separate
 
@@ -351,26 +354,36 @@ module.exports = class Endpoint
 				filter[prop][key] = val
 		filter = {}
 		if @$$endpoint.options.queryParams
-			for query_var in @$$endpoint.options.queryParams
-				if req.query[query_var] and (_.isString(req.query[query_var]) or req.query[query_var] instanceof Date)
-					if query_var.substr(0, 4) is '$lt_'
-						addToFilter(filter, query_var.replace('$lt_', ''), '$lt', req.query[query_var])
-					else if query_var.substr(0, 5) is '$lte_'
-						addToFilter(filter, query_var.replace('$lte_', ''), '$lte', req.query[query_var])
-					else if query_var.substr(0, 4) is '$gt_'
-						addToFilter(filter, query_var.replace('$gt_', ''), '$gt', req.query[query_var])
-					else if query_var.substr(0, 5) is '$gte_'
-						addToFilter(filter, query_var.replace('$gte_', ''), '$gte', req.query[query_var])
-					else if query_var.substr(0,4) is '$in_'
-						addToFilter(filter, query_var.replace('$in_', ''), '$in', req.query[query_var])
-					else if query_var.substr(0,4) is '$ne_'
-						addToFilter(filter, query_var.replace('$ne_', ''), '$ne', req.query[query_var])
-					else if query_var.substr(0,7) is '$regex_'
-						addToFilter(filter, query_var.replace('$regex_', ''), '$regex', new RegExp(req.query[query_var]))
-					else if query_var.substr(0,8) is '$regexi_'
-						addToFilter(filter, query_var.replace('$regexi_', ''), '$regex', new RegExp(req.query[query_var], 'i'))
-					else
-						filter[query_var]= req.query[query_var]
+			for k,v of req.query
+				if _.isString(v) or v instanceof Date
+					for q in @$$endpoint.options.queryParams
+						if minimatch(k, q)
+							if v is '$exists'
+								v =
+									$exists:true
+
+							if k.substr(0, 4) is '$lt_'
+								addToFilter(filter, k.replace('$lt_', ''), '$lt', v)
+							else if k.substr(0, 5) is '$lte_'
+								addToFilter(filter, k.replace('$lte_', ''), '$lte', v)
+							else if k.substr(0, 4) is '$gt_'
+								addToFilter(filter, k.replace('$gt_', ''), '$gt', v)
+							else if k.substr(0, 5) is '$gte_'
+								addToFilter(filter, k.replace('$gte_', ''), '$gte', v)
+							else if k.substr(0,4) is '$in_'
+								addToFilter(filter, k.replace('$in_', ''), '$in', v)
+							else if k.substr(0,4) is '$ne_'
+								addToFilter(filter, k.replace('$ne_', ''), '$ne', v)
+							else if k.substr(0,7) is '$regex_'
+								addToFilter(filter, k.replace('$regex_', ''), '$regex', new RegExp(v))
+							else if k.substr(0,8) is '$regexi_'
+								addToFilter(filter, k.replace('$regexi_', ''), '$regex', new RegExp(v, 'i'))
+							else
+								filter[k]= v
+
+						 
+
+							
 		next(filter)
 	
 

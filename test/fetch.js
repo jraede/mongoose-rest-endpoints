@@ -44,7 +44,8 @@ postSchema = new mongoose.Schema({
       ref: 'Comment',
       $through: '_post'
     }
-  ]
+  ],
+  otherField: mongoose.Schema.Types.Mixed
 });
 
 authorSchema = new mongoose.Schema({

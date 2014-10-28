@@ -44,7 +44,8 @@ postSchema = new mongoose.Schema({
   ],
   foo: {
     bar: Number
-  }
+  },
+  otherField: mongoose.Schema.Types.Mixed
 });
 
 authorSchema = new mongoose.Schema({
@@ -106,7 +107,10 @@ describe('List', function() {
       mod = modClass({
         date: Date.now(),
         number: 5,
-        string: 'Test'
+        string: 'Test',
+        otherField: {
+          foo: 'bar'
+        }
       });
       return mod.save(function(err, res) {
         _this.mod = res;
@@ -218,7 +222,7 @@ describe('List', function() {
         });
       });
     });
-    return it('should do a case insensitive regex search', function(done) {
+    it('should do a case insensitive regex search', function(done) {
       var _this = this;
       this.endpoint.allowQueryParam('$regexi_string').register(this.app);
       return request(this.app).get('/api/posts/').query({
@@ -231,6 +235,23 @@ describe('List', function() {
         }).end(function(err, res) {
           res.status.should.equal(200);
           res.body.length.should.equal(1);
+          return done();
+        });
+      });
+    });
+    return it('should work with $exists', function(done) {
+      var _this = this;
+      this.endpoint.allowQueryParam(['otherField.*']).register(this.app);
+      return request(this.app).get('/api/posts/').query({
+        'otherField.foo': '$exists'
+      }).end(function(err, res) {
+        res.status.should.equal(200);
+        res.body.length.should.equal(1);
+        return request(_this.app).get('/api/posts/').query({
+          'otherField.bar': '$exists'
+        }).end(function(err, res) {
+          res.status.should.equal(200);
+          res.body.length.should.equal(0);
           return done();
         });
       });

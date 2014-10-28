@@ -71,6 +71,11 @@ This defines which parameters from the query string are passed through as filter
 * `$regex_` - Value matches a regular expression
 * `$regexi_` - Value matches a case-insensitve regular expression
 
+#### Update in version 3.6.0
+You can now use a * to match parts of query variables. E.g. "objectField.*" will allow any query param starting with "objectField.".
+
+Also, you can use "$exists" as a value to check if the field exists on the document (`{$exists:true}`)
+
 #### Example:
 
 ```javascript

@@ -1,7 +1,6 @@
 {
   "name": "mongoose-rest-endpoints",
   "version": "3.5.0",
-  
   "description": "Easy REST endpoint creation for Mongoose documents with Express",
   "main": "index.js",
   "scripts": {
@@ -17,14 +16,15 @@
     "API"
   ],
   "dependencies": {
+    "colors": "^0.6.2",
+    "dot-component": "~0.1.0",
     "express": "3.4.3",
+    "hooks": "~0.3.2",
+    "minimatch": "^1.0.0",
+    "moment": "~2.6.0",
     "mongoose": "~3.8.8",
     "q": "*",
-    "underscore": "~1.5.2",
-    "hooks": "~0.3.2",
-    "dot-component": "~0.1.0",
-    "colors": "^0.6.2",
-    "moment": "~2.6.0"
+    "underscore": "~1.5.2"
   },
   "author": {
     "name": "Jason Raede",

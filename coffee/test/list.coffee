@@ -33,6 +33,8 @@ postSchema = new mongoose.Schema
 	foo:
 		bar:Number
 
+	otherField:mongoose.Schema.Types.Mixed
+
 authorSchema = new mongoose.Schema
 	name:'String'
 
@@ -85,6 +87,8 @@ describe 'List', ->
 				date:Date.now()
 				number:5
 				string:'Test'
+				otherField:
+					foo:'bar'
 			mod.save (err, res) =>
 				@mod = res
 				done()
@@ -130,6 +134,7 @@ describe 'List', ->
 				res.body[0].string.should.equal('Test')
 				should.not.exist(res.body[0].number)
 				done()
+
 
 
 		it 'should work with default query hook', (done) ->
@@ -203,6 +208,21 @@ describe 'List', ->
 					res.body.length.should.equal(1)
 					done()
 
+		it 'should work with $exists', (done) ->
+
+			@endpoint.allowQueryParam(['otherField.*']).register(@app)
+			request(@app).get('/api/posts/').query
+				'otherField.foo':'$exists'
+			.end (err, res) =>
+				res.status.should.equal(200)
+				res.body.length.should.equal(1)
+
+				request(@app).get('/api/posts/').query
+					'otherField.bar':'$exists'
+				.end (err, res) =>
+					res.status.should.equal(200)
+					res.body.length.should.equal(0)
+					done()
 	
 	describe 'Populate', ->
 		beforeEach (done) ->

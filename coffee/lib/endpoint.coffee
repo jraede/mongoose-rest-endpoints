@@ -355,7 +355,7 @@ module.exports = class Endpoint
 		filter = {}
 		if @$$endpoint.options.queryParams
 			for k,v of req.query
-				if _.isString(v) or v instanceof Date
+				if v and (_.isString(v) or v instanceof Date)
 					for q in @$$endpoint.options.queryParams
 						if minimatch(k, q)
 							if v is '$exists'

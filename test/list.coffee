@@ -58,12 +58,6 @@ createPost = (data) ->
 	return deferred.promise
 mongoose.connect('mongodb://localhost/mre_test')
 
-cascade = require 'cascading-relations'
-
-
-postSchema.plugin(cascade)
-commentSchema.plugin(cascade)
-authorSchema.plugin(cascade)
 
 mongoose.model('Post', postSchema)
 mongoose.model('Comment', commentSchema)
@@ -143,6 +137,7 @@ describe 'List', ->
 			request(@app).get('/api/posts/').query
 				'$gte_number':6
 			.end (err, res) =>
+				console.log res.body
 				res.status.should.equal(200)
 				res.body.length.should.equal(0)
 
@@ -236,13 +231,16 @@ describe 'List', ->
 				date:Date.now()
 				number:5
 				string:'Test'
-				_related:
-					_comments:[
-							comment:'Asdf1234'
-					]
-			mod.cascadeSave (err, res) =>
-				@mod = res
+			comment = new (mongoose.model('Comment'))()
+			comment._post = mod._id
+			comment.comment = 'Asdf1234'
+			comment.otherField = 5
+
+			mod._comments = [comment._id]
+			@mod = mod
+			Q.all([mod.saveQ(), comment.saveQ()]).then ->
 				done()
+			.fail(done).done()
 
 		afterEach (done) ->
 			@mod.remove (err, res) ->
@@ -257,8 +255,7 @@ describe 'List', ->
 				res.status.should.equal(200)
 				res.body.length.should.equal(1)
 				res.body[0]._comments.length.should.equal(1)
-				res.body[0]._related._comments.length.should.equal(1)
-				res.body[0]._related._comments[0].comment.should.equal('Asdf1234')
+				res.body[0]._comments[0].comment.should.equal('Asdf1234')
 				done()
 	describe 'Pagination', ->
 		beforeEach (done) ->
@@ -290,10 +287,7 @@ describe 'List', ->
 				promises.push(createPost(post))
 			Q.all(promises).then =>
 
-				new mre '/api/posts', 'Post',
-					pagination:
-						sortField:'string'
-						perPage:2
+				new mre('/api/posts', 'Post').paginate(2, 'string')
 				.register(@app)
 
 

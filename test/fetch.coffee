@@ -8,7 +8,6 @@ mongoose = require 'mongoose'
 moment = require 'moment'
 
 require('../lib/log').verbose(true)
-tracker = require '../lib/tracker'
 mre = require '../lib/endpoint'
 # Custom "Post" and "Comment" documents
 
@@ -34,7 +33,7 @@ postSchema = new mongoose.Schema
 			ref:'Comment'
 			$through:'_post'
 	]
-	otherField:mongoose.Schema.Types.Mixed
+	otherField:mongoose.Schema.Types.Mixed 
 
 authorSchema = new mongoose.Schema
 	name:'String'
@@ -48,12 +47,7 @@ requirePassword = (password) ->
 			res.send(401)
 mongoose.connect('mongodb://localhost/mre_test')
 
-cascade = require 'cascading-relations'
 
-
-postSchema.plugin(cascade)
-commentSchema.plugin(cascade)
-authorSchema.plugin(cascade)
 
 mongoose.model('Post', postSchema)
 mongoose.model('Comment', commentSchema)
@@ -196,18 +190,20 @@ describe 'Fetch', ->
 				date:Date.now()
 				number:5
 				string:'Test'
-				_related:
-					_comments:[
-							comment:'Asdf1234'
-							otherField:5
-					]
-			mod.cascadeSave (err, res) =>
-				@mod = res
+			comment = new (mongoose.model('Comment'))()
+			comment._post = mod._id
+			comment.comment = 'Asdf1234'
+			comment.otherField = 5
+
+			mod._comments = [comment._id]
+			@mod = mod
+			Q.all([mod.saveQ(), comment.saveQ()]).then ->
 				done()
+			.fail(done).done()
 		afterEach (done) -> 
 			@mod.remove ->
 				done()
-		it 'should populate on _related', (done) ->
+		it 'should populate', (done) ->
 
 			@endpoint.populate('_comments').register(@app)
 
@@ -216,10 +212,9 @@ describe 'Fetch', ->
 				res.status.should.equal(200)
 				res.body.number.should.equal(5)
 				res.body.string.should.equal('Test')
-				res.body._related._comments.length.should.equal(1)
 				res.body._comments.length.should.equal(1)
-				res.body._related._comments[0].comment.should.equal('Asdf1234')
-				res.body._related._comments[0].otherField.should.equal(5)
+				res.body._comments[0].comment.should.equal('Asdf1234')
+				res.body._comments[0].otherField.should.equal(5)
 				done()
 		it 'should populate when specifying fields', (done) ->
 			@endpoint.populate('_comments', 'comment').register(@app)
@@ -228,72 +223,7 @@ describe 'Fetch', ->
 				res.status.should.equal(200)
 				res.body.number.should.equal(5)
 				res.body.string.should.equal('Test')
-				res.body._related._comments.length.should.equal(1)
 				res.body._comments.length.should.equal(1)
-				res.body._related._comments[0].comment.should.equal('Asdf1234')
-				should.not.exist(res.body._related._comments[0].otherField)
+				res.body._comments[0].comment.should.equal('Asdf1234')
+				should.not.exist(res.body._comments[0].otherField)
 				done()
-
-	describe 'Tracking interface', ->
-		beforeEach (done) ->
-			@endpoint = new mre('/api/posts', 'Post')
-			@app = express()
-			@app.use(express.bodyParser())
-			@app.use(express.methodOverride())
-
-			done()
-		afterEach (done) ->
-			if @mod
-				@mod.remove ->
-					done()
-			else
-				done()
-		it 'should run tracking interface on success', (done) ->
-
-			modClass = mongoose.model('Post')
-			mod = modClass
-				date:Date.now()
-				number:5
-				string:'Test'
-			mod.save (err, res) =>
-				@mod = res
-
-				tracker.interface =
-					track: (params) ->
-						console.log 'Tracking params', params
-						params.response.code.should.equal(200)
-						(params.time < 50).should.equal(true)
-						done()
-
-				@endpoint.register(@app)
-
-				
-				request(@app).get('/api/posts/' + @mod._id).end (err, res) ->
-					console.log 'Ended'
-		it 'should run tracking interface on error', (done) ->
-			tracker.interface =
-				track: (params) ->
-					console.log 'Tracking params:', params
-					params.response.code.should.equal(400)
-					(params.time < 50).should.equal(true)
-					done()
-
-			@endpoint.register(@app)
-
-			
-			request(@app).get('/api/posts/asdf').end (err, res) ->
-				console.log 'Ended'
-
-		it 'should calculate time based on X-Request-Start header', (done) ->
-			tracker.interface =
-				track: (params) ->
-					params.response.code.should.equal(400)
-					params.time.should.be.greaterThan(100)
-					params.time.should.be.lessThan(200)
-					done()
-
-			@endpoint.register(@app)
-
-			requestStart = moment().valueOf() - 100
-			request(@app).get('/api/posts/asdf').set('X-Request-Start', requestStart.toString()).end (err, res) ->
-				console.log 'Ended'

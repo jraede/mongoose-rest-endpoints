@@ -42,12 +42,7 @@ requirePassword = (password) ->
 			res.send(401)
 mongoose.connect('mongodb://localhost/mre_test')
 
-cascade = require 'cascading-relations'
 
-
-postSchema.plugin(cascade)
-commentSchema.plugin(cascade)
-authorSchema.plugin(cascade)
 
 mongoose.model('Post', postSchema)
 mongoose.model('Comment', commentSchema)
@@ -86,6 +81,7 @@ describe 'Delete', ->
 			data.number = 6;
 
 			request(@app).del('/api/posts/' + data._id).end (err, res) ->
+				console.log res.text
 				res.status.should.equal(200)
 				
 				mongoose.model('Post').findById data._id, (err, res) ->

@@ -42,12 +42,7 @@ requirePassword = (password) ->
 			res.send(401)
 mongoose.connect('mongodb://localhost/mre_test')
 
-cascade = require 'cascading-relations'
 
-
-postSchema.plugin(cascade)
-commentSchema.plugin(cascade)
-authorSchema.plugin(cascade)
 
 mongoose.model('Post', postSchema)
 mongoose.model('Comment', commentSchema)
@@ -169,49 +164,4 @@ describe 'Put', ->
 
 
 	
-
-	
-		
-	describe 'Cascading relations', ->
-		beforeEach (done) ->
-			@endpoint = new mre('/api/posts', 'Post')
-			@app = express()
-			@app.use(express.bodyParser())
-			@app.use(express.methodOverride())
-			modClass = mongoose.model('Post')
-			mod = modClass
-				date:Date.now()
-				number:5
-				string:'Test'
-			mod.save (err, res) =>
-				@mod = res
-				done()
-		afterEach (done) ->
-			# clear out
-			mongoose.connection.collections.posts.drop()
-			done()
-
-		it 'should let you put with relations', (done) ->
-			@endpoint.cascade ['_comments'], (data, path) ->
-				data.comment += 'FFF'
-				return data
-			.register(@app)
-
-			data = 
-				date:Date.now()
-				number:5
-				string:'Test'
-				_related:
-					_comments:[
-							comment:'asdf1234'
-					]
-
-			request(@app).put('/api/posts/' + @mod._id).send(data).end (err, res) ->
-				res.status.should.equal(200)
-				res.body.number.should.equal(5)
-				res.body.string.should.equal('Test')
-				res.body._comments.length.should.equal(1)
-				res.body._related._comments.length.should.equal(1)
-				res.body._related._comments[0].comment.should.equal('asdf1234FFF')
-				done()
 

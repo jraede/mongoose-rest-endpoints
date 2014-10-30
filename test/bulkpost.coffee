@@ -7,7 +7,6 @@ mongoose = require 'mongoose'
 require('../lib/log').verbose(true)
 mre = require '../lib/endpoint'
 # Custom "Post" and "Comment" documents
-tracker = require '../lib/tracker'
 moment = require 'moment'
 commentSchema = new mongoose.Schema
 	comment:String
@@ -46,12 +45,7 @@ requirePassword = (password) ->
 			res.send(401)
 mongoose.connect('mongodb://localhost/mre_test')
 
-cascade = require 'cascading-relations'
 
-
-postSchema.plugin(cascade)
-commentSchema.plugin(cascade)
-authorSchema.plugin(cascade)
 
 mongoose.model('Post', postSchema)
 mongoose.model('Comment', commentSchema)
@@ -61,7 +55,7 @@ mongoose.set 'debug', true
 
 
 
-describe 'Post', ->
+describe 'Bulk Post', ->
 	@timeout(5000)
 	describe 'Basic object', ->
 		beforeEach (done) ->

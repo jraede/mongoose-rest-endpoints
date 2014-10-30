@@ -96,22 +96,6 @@ new mongooseRestEndpoints.endpoint('/api/pages', 'Page', {
 }).register(app);
 ```
 
-### Enable Cascading Relations
-```javascript
-endpoint.cascade([], function(data,path){});
-```
-
-This package is meant to work in tandem with my Mongoose plugin [Cascading Relations](https://github.com/jraede/cascading-relations). To enable this feature, just run the `cascade` method on the endpoint, passing an `Array` of allowed relation paths as the first argument, and optionally a filter function to run on every related document before it is saved. Related documents will be created or modified from the `_related` property of the data passed via *PUT* or *POST* requests, and will be populated on the same property in each response.
-
-#### Example:
-
-```javascript
-endpoint.cascade(['_comments'], function(commentData, schemaPath) {
-    commentData.ranThroughFilter = true;
-    return commentData;
-});
-```
-
 ### Bulk posting
 Bulk posting is disabled by default. To allow it, run `allowBulkPost()` on your endpoint before registering. The response code for a bulk post will be a 201 if ALL saves were successful, with no response body. Otherwise if some failed and some were successful, the code will be a 207. Or if everything failed, the response code will be the error code for the first error. For these two "error" instances, the response body will be an array of the results of each promise, structured like so:
 
@@ -131,24 +115,26 @@ To set the pagination defaults to something else, call the `paginate` method:
 endpoint.paginate(resultsPerPage, sortField)
 ```
 
-Defaults are overridden by query variables
-
-```javascript
-new mongooseRestEndpoints.endpoint('/api/pages', 'Page', {
-	// Simply including this configuration will enable pagination
-	pagination:{
-		perPage:20,
-		sortField:'title'
-		
-	}
-}).register(app);
-```
+Defaults are overridden by query variables.
 
 With pagination, the paginated data will be returned at the root-level, the same as unpaginated requests. You can access the total number of records via a line in the response header - `Record-Count`.
 		
 ### Middleware
 
-Then you can register middleware functions using `addMiddleware(HTTPVERB, FUNCTION(S)`, passing either a single function or an array of functions.
+Then you can register middleware functions using `addMiddleware(METHOD, FUNCTION(S)`, passing either a single function or an array of functions.
+
+Methods are:
+
+* 'fetch'
+* 'list'
+* 'post'
+* 'bulkpost'
+* 'put'
+* 'delete'
+
+You can also use `'all`' for all methods, `'write'` for `'post', 'put','delete','bulkpost'` methods, and `'read'` for `'fetch','list'` methods.
+
+### Registering Endpoints
 
 Finally, register it to your express app, which will set up the URL routes used to access your endpoint.
 
@@ -239,31 +225,3 @@ You can turn on `verbose` mode to see the internal logs of your endpoints:
 `require('mongoose-rest-endpoints').log.verbose(true);`
 
 All log lines are prefixed with `[MRE]`.
-
-## Tracking
-As of version 3.3, this package tracks the response time for requests to your endpoints. If you use Heroku, the start time will be the value of the `X-Request-Start` header, which is the time the request reached the Heroku router, rather than your actual Dyno. Otherwise the start time will be the current unix offset.
-
-By default there is no tracking interface - you are expected to add your own, with a `track` method. To add a tracking interface:
-
-```javascript
-require('mongoose-rest-endpoints').tracker.interface = {
-  /**
-   * Params are:
-   * request - The original express request object
-   * time - The total time elapsed, in milliseconds
-   * url - The absolute URL used in the request
-   * method - The [MRE] method (fetch, list, post, put, delete)
-   * response - {
-   *    code - The response code
-   *    success - Boolean, true response code was successful (200-level), false if not.
-   *    error - If there was an error, the error object will be here
-   */ }
-
-  track:function(params) {
-    // Store in a log somewhere
-  }
-}
-```
-
-I am in the middle of writing a Keen IO driver for this tracking with an automated alert system, so I will post a link to it here when I finish. In the meantime it should not be too difficult to integrate with your own tracking solution.
-

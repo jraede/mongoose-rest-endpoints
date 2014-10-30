@@ -2,6 +2,8 @@ mongoose = require('mongoose-q')()
 _ = require('underscore')
 Q = require('q')
 log = require('./log')
+request = require('./request')
+minimatch = require('minimatch')
 module.exports = class Endpoint
 	constructor:(@path, model, config) ->
 
@@ -166,12 +168,20 @@ module.exports = class Endpoint
 				@addMiddleware(m, middleware)
 			if @options.allowBulkPost
 				@addMiddleware('bulkpost', middleware)
+		else if method is 'write'
+			for m in ['post','put','delete']
+				@addMiddleware(m, middleware)
+			if @options.allowBulkPost
+				@addMiddleware('bulkpost', middleware)
+		else if method is 'read'
+			for m in ['fetch', 'list']
+				@addMiddleware(m, middleware)
 		else
 			if middleware instanceof Array
 				for m in middleware
 					@addMiddleware(method, m)
 			else
-				@$$middleware[method].push(middleware)
+				@$middleware[method].push(middleware)
 
 		return @
 
@@ -208,7 +218,6 @@ module.exports = class Endpoint
 		# FETCH
 		app.get @path + '/:id', @$middleware.fetch, (req, res) =>
 
-			res.$mre.method = 'fetch'
 
 			log @path.green, 'request to ', 'FETCH'.bold
 
@@ -217,32 +226,27 @@ module.exports = class Endpoint
 
 		# LIST
 		app.get @path, @$middleware.list, (req, res) =>
-			res.$mre.method = 'list'
 			log @path.green, 'request to ', 'LIST'.bold
 			new request(@).list(req, res)
 
 		# POST
 		app.post @path, @$middleware.post, (req, res) =>
-			res.$mre.method = 'post'
 			log @path.green, 'request to ', 'POST'.bold
 			new request(@).post(req, res)
 
 		# BULK POST
 		if @options.allowBulkPost
 			app.post @path + '/bulk', @$middleware.bulkpost, (req, res) =>
-				res.$mre.method = 'bulkpost'
 				log @path.green, 'request to ', 'BULKPOST'.bold
 				new request(@).bulkpost(req, res)
 
 		# PUT
 		app.put @path + '/:id', @$middleware.put, (req, res) =>
-			res.$mre.method = 'put'
 			log @path.green, 'request to ', 'PUT'.bold
 			new request(@).put(req, res)
 
 		# DELETE
 		app.delete @path + '/:id', @$middleware.delete, (req, res) =>
-			res.$mre.method = 'delete'
 			log @path.green, 'request to ', 'DELETE'.bold
 			new request(@).delete(req, res)
 
@@ -252,6 +256,7 @@ module.exports = class Endpoint
 	###
 	$constructFilterFromRequest:(req, data, next) ->
 		addToFilter = (filter, prop, key, val) ->
+			console.log 'Adding to filter:', prop, key, val
 			if key is '$in' and !_.isArray(val)
 				val = [val]
 			if !filter[prop]?
@@ -273,7 +278,8 @@ module.exports = class Endpoint
 							foundManipulatorMatch = false
 							basicManipulators = ['$lt', '$lte', '$gt', '$gte', '$in', '$ne']
 							for b in basicManipulators
-								if k.substr(0, b.length) is (b + '_')
+								if k.substr(0, b.length + 1) is b + '_'
+
 									addToFilter(filter, k.replace((b + '_'), ''), b, v)
 									foundManipulatorMatch = true
 							

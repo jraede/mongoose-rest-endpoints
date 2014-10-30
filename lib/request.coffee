@@ -3,14 +3,14 @@ _ = require('underscore')
 httperror = require('./httperror')
 log = require('./log')
 moment = require('moment')
-
+minimatch = require('minimatch')
 
 validMongoId = (id) ->
 	return id.match(/^[0-9a-fA-F]{24}$/)
 module.exports = class Request
 	constructor:(@$endpoint, modelClass = null) ->
 		if !modelClass
-			modelClass = endpoint.$modelClass
+			modelClass = @$endpoint.$modelClass
 
 		@$modelClass = modelClass
 
@@ -30,7 +30,7 @@ module.exports = class Request
 			catch err
 				deferred.reject(err)
 
-		taps = @$$endpoint.$taps
+		taps = @$endpoint.$taps
 		if !taps[hook]?
 			log 'No taps on hook'
 			deferred.resolve(mod)
@@ -79,6 +79,8 @@ module.exports = class Request
 			deferred.resolve(doc)
 		.fail(deferred.reject).done()
 
+		return deferred.promise
+
 
 	$getPaginationConfig:(req) ->
 		data = req.query
@@ -120,7 +122,7 @@ module.exports = class Request
 			.done()
 
 		# Filter data
-		$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
+		@$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
 			filter._id = id
 			query = @$modelClass.findOne(filter)
 			@$populateQuery(query)
@@ -183,18 +185,21 @@ module.exports = class Request
 			# Handle pagination
 			return applyPagination(query, filter)
 		.then (query) =>
+			if @$endpoint.options.limitFields?
+				query.select(@$endpoint.options.limitFields.join(' '))
 			return query.execQ()
 		.then (response) =>
 			return @$runHook('post_retrieve', 'list', req, response)
-		.then (response) ->
+		.then (response) =>
 			final = []
-			for f in collection
+			for f in response
 				final.push(f.toObject())
 
 			return @$runHook('pre_response', 'list', req, final)
 		.then (response) ->
 			res.status(200).send(response)
 		.fail (err) =>
+			console.log err.stack
 			@$runHook('pre_response_error', 'list', req, httperror.forge(err.message, if err.code? then err.code else 500))
 			.then (err) ->
 				res.status(err.code).send(err.message)
@@ -222,6 +227,7 @@ module.exports = class Request
 		.then (response) ->
 			res.status(201).send(response)
 		.fail (err) =>
+			console.log err.stack
 			@$runHook('pre_resposne_error', 'post', req, httperror.forge(err.message, if err.code? then err.code else 500))
 			.then (err) ->
 				res.status(err.code).send(err.message)
@@ -234,12 +240,13 @@ module.exports = class Request
 
 	$doSingleBulkPost:(obj, req) ->
 		deferred = Q.defer()
+		model = new @$modelClass(obj)
 		@$runHook('pre_save', 'bulkpost', req, model).then (data) =>
 			return model.saveQ()
 		.then (model) =>
 			deferred.resolve()
 		.fail (err) =>
-			@$runHook('pre_response_error', 'bulkpost', req, httperror.forge(err, if err.code? then err.code else 500)).then (err) ->
+			@$runHook('pre_response_error', 'bulkpost', req, httperror.forge(err, if err.code? then err.code else 400)).then (err) ->
 				deferred.reject(err)
 			.fail(deferred.reject).done()
 		.done()
@@ -265,7 +272,7 @@ module.exports = class Request
 
 		resolvedCount = 0
 		rejectedCount = 0
-		Q.allResolved(promises).then (results) =>
+		Q.allSettled(promises).then (results) =>
 			
 			for result in results
 				if result.state is 'fulfilled'
@@ -279,6 +286,8 @@ module.exports = class Request
 
 			if resolvedCount and !rejectedCount
 				res.status(201)
+			else if !resolvedCount 
+				res.status(results[0].reason.code)
 			else
 				res.status(207)
 
@@ -329,7 +338,10 @@ module.exports = class Request
 					res.status(500).send()
 				.done()
 
-			return @$runHook('pre_save', 'put', req, model).then (model) =>
+			return @$runHook('post_retrieve', 'put', req, model).then (model) =>
+				model.set(req.body)
+				return @$runHook('pre_save', 'put', req, model).then (model) =>
+			.then =>
 				return model.saveQ()
 			.then (model) =>
 				return @$populateDocument(model)
@@ -338,6 +350,7 @@ module.exports = class Request
 			.then (response) ->
 				res.status(200).send(response)
 			.fail (err) =>
+				console.log err.stack
 				@$runHook('pre_response_error', 'put', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
 					res.status(err.code).send(err.message)
 				.fail (err) ->
@@ -346,6 +359,7 @@ module.exports = class Request
 				.done()
 			.done()
 		.fail (err) =>
+			console.log err.stack
 			@$runHook('pre_response_error', 'put', req, httperror.forge(err.message, if err.code? then err.code else 500)).then (err) ->
 				res.status(err.code).send(err.message)
 			.fail (err) ->
@@ -394,7 +408,7 @@ module.exports = class Request
 					console.log err.stack
 					res.status(500).send()
 				.done()
-			@$runhook('post_retrieve', 'delete', req, model).then (model) =>
+			@$runHook('post_retrieve', 'delete', req, model).then (model) =>
 				return model.removeQ()
 			.then =>
 				res.status(200).send()

@@ -21,26 +21,8 @@ module.exports = function(grunt) {
 		exec:{
 			test: {
 				cmd:function(ex) {
-					return f('NODE_ENV=test mocha %s', ex)
+					return f('NODE_ENV=test mocha --compilers coffee:coffee-script/register %s', ex)
 				}
-			}
-		},
-		coffee: {
-			source:{
-				options:{
-					preserve_dirs:true,
-					bare:true
-				},
-				files:[
-					{
-						expand:true,
-						flatten:false,
-						cwd:'coffee',
-						src:['*.coffee','**/*.coffee'],
-						dest:'',
-						ext:'.js'
-					}
-				]
 			}
 		}
 	});
@@ -80,7 +62,7 @@ module.exports = function(grunt) {
 				//tasks = ['exec:test:"test/unit/*.js"']
 				break;
 			default:
-				tasks = ['dropTestDb', 'exec:test:"test/' + type + '.js"', 'dropTestDb']
+				tasks = ['dropTestDb', 'exec:test:"test/' + type + '.coffee"', 'dropTestDb']
 				break;
 		}
 		grunt.task.run(tasks);

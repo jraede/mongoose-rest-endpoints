@@ -16,6 +16,7 @@
     "API"
   ],
   "dependencies": {
+    "coffee-script": "^1.8.0",
     "colors": "^0.6.2",
     "dot-component": "~0.1.0",
     "express": "3.4.3",
@@ -39,7 +40,6 @@
   "devDependencies": {
     "supertest": "~0.8.2",
     "should": "~2.1.1",
-    "cascading-relations": "~0.7.9",
     "grunt": "~0.4.2",
     "grunt-contrib-coffee": "~0.8.0",
     "grunt-contrib-watch": "~0.5.3",

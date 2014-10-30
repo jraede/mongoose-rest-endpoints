@@ -1,3 +1,4 @@
+require('coffee-script/register');
 module.exports = {
   endpoint: require('./lib/endpoint'),
   httperror: require('./lib/httperror'),

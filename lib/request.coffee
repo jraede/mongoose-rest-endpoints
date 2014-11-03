@@ -322,7 +322,7 @@ module.exports = class Request
 
 		# Fetch pre filter runs here in case they want to prevent fetching based on some parameter. Same would apply for this and DELETE
 		@$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
-
+			filter._id = id
 			query = @$modelClass.findOne(filter)
 
 			@$populateQuery(query)
@@ -334,11 +334,11 @@ module.exports = class Request
 				.then (err) ->
 					res.status(err.code).send(err.message)
 				.fail (err) ->
-					console.log err.stack
 					res.status(500).send()
 				.done()
 
 			return @$runHook('post_retrieve', 'put', req, model).then (model) =>
+				delete req.body._id
 				model.set(req.body)
 				return @$runHook('pre_save', 'put', req, model).then (model) =>
 			.then =>
@@ -393,7 +393,7 @@ module.exports = class Request
 
 		# Fetch pre filter runs here in case they want to prevent fetching based on some parameter. Same would apply for this and DELETE
 		@$runHook('pre_filter', 'fetch', req, {}).then (filter) =>
-
+			filter._id = id
 			query = @$modelClass.findOne(filter)
 
 			@$populateQuery(query)

@@ -159,6 +159,7 @@ module.exports = class Request
 	list:(req, res) ->
 		log 'Running ' + 'LIST'.bold
 
+		res.set('Time-Start', (new Date()).toISOString())
 		applyPagination = (query, filter) =>
 			deferred = Q.defer()
 			if @$endpoint.options.pagination
@@ -181,22 +182,26 @@ module.exports = class Request
 		@$runHook('pre_filter', 'list', req, {}).then (filter) =>
 			query = @$modelClass.find(filter)
 			@$populateQuery(query)
-
+			res.set('Time-PreFilter', (new Date()).toISOString())
 			# Handle pagination
 			return applyPagination(query, filter)
 		.then (query) =>
+			res.set('Time-PreQuery', (new Date()).toISOString())
 			if @$endpoint.options.limitFields?
 				query.select(@$endpoint.options.limitFields.join(' '))
 			return query.execQ()
 		.then (response) =>
+			res.set('Time-PostQuery', (new Date()).toISOString())
 			return @$runHook('post_retrieve', 'list', req, response)
 		.then (response) =>
+			res.set('Time-PostRetrieve', (new Date()).toISOString())
 			final = []
 			for f in response
 				final.push(f.toObject())
 
 			return @$runHook('pre_response', 'list', req, final)
 		.then (response) ->
+			res.set('Time-PreResponse', (new Date()).toISOString())
 			res.status(200).send(response)
 		.fail (err) =>
 			console.log err.stack

@@ -164,9 +164,11 @@ module.exports = class Request
 			deferred = Q.defer()
 			if @$endpoint.options.pagination
 				log 'Paginating'
-
+				res.set('Time-PreCount', (new Date()).toISOString())
+				res.set('Count-Filter', JSON.stringify(filter))
 				@$modelClass.countQ(filter)
 				.then (count) =>
+					res.set('Time-PostCount', (new Date()).toISOString())
 					log 'There are ' + count.toString().yellow + ' total documents that fit filter'
 					res.setHeader('Record-Count', count.toString())
 

@@ -159,23 +159,27 @@ module.exports = class Request
 	list:(req, res) ->
 		log 'Running ' + 'LIST'.bold
 
-		res.set('Time-Start', (new Date()).toISOString())
 		applyPagination = (query, filter) =>
 			deferred = Q.defer()
 			if @$endpoint.options.pagination
 				log 'Paginating'
-				res.set('Time-PreCount', (new Date()).toISOString())
-				res.set('Count-Filter', JSON.stringify(filter))
-				@$modelClass.countQ(filter)
-				.then (count) =>
-					res.set('Time-PostCount', (new Date()).toISOString())
-					log 'There are ' + count.toString().yellow + ' total documents that fit filter'
-					res.setHeader('Record-Count', count.toString())
 
+				if @$endpoint.options.pagination.ignoreCount
 					config = @$getPaginationConfig(req)
 					query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
 					deferred.resolve(query)
-				.fail(deferred.reject).done()
+				else
+					
+					@$modelClass.countQ(filter)
+					.then (count) =>
+						res.set('Time-PostCount', (new Date()).toISOString())
+						log 'There are ' + count.toString().yellow + ' total documents that fit filter'
+						res.setHeader('Record-Count', count.toString())
+
+						config = @$getPaginationConfig(req)
+						query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
+						deferred.resolve(query)
+					.fail(deferred.reject).done()
 			else
 				deferred.resolve(query)
 
@@ -184,26 +188,21 @@ module.exports = class Request
 		@$runHook('pre_filter', 'list', req, {}).then (filter) =>
 			query = @$modelClass.find(filter)
 			@$populateQuery(query)
-			res.set('Time-PreFilter', (new Date()).toISOString())
 			# Handle pagination
 			return applyPagination(query, filter)
 		.then (query) =>
-			res.set('Time-PreQuery', (new Date()).toISOString())
 			if @$endpoint.options.limitFields?
 				query.select(@$endpoint.options.limitFields.join(' '))
 			return query.execQ()
 		.then (response) =>
-			res.set('Time-PostQuery', (new Date()).toISOString())
 			return @$runHook('post_retrieve', 'list', req, response)
 		.then (response) =>
-			res.set('Time-PostRetrieve', (new Date()).toISOString())
 			final = []
 			for f in response
 				final.push(f.toObject())
 
 			return @$runHook('pre_response', 'list', req, final)
 		.then (response) ->
-			res.set('Time-PreResponse', (new Date()).toISOString())
 			res.status(200).send(response)
 		.fail (err) =>
 			console.log err.stack

@@ -1,12 +1,14 @@
-_ = require 'underscore'
+_ = require 'lodash'
 require 'colors'
 
 verbose = false
+
 log = ->
-	if verbose
-		args = _.values(arguments)
-		args.unshift('[MRE]'.yellow.underline)
-		return console.log.apply(@, args)
+	return unless verbose
+	args = _.values(arguments)
+	args.unshift('[MRE]'.yellow.underline)
+	return console.log.apply(@, args)
+
 log.verbose = (v) ->
 	verbose = v
 

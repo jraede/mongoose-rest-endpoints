@@ -1,5 +1,5 @@
 Q = require('q')
-_ = require('underscore')
+_ = require('lodash')
 httperror = require('./httperror')
 log = require('./log')
 moment = require('moment')
@@ -22,7 +22,7 @@ module.exports = class Request
 			log hook.green + '::' + method.green + ' - ', 'Data is now:', data
 			if data instanceof Error
 				return deferred.reject(data)
-			try 
+			try
 				# Now you MUST call next explicitly regardless of whether it is sychronous or not. To
 				# avoid confusion with coffee script implicitly returning last value
 				_.bind(f, @, a, data, next)()
@@ -40,7 +40,7 @@ module.exports = class Request
 		else
 			funcs = taps[hook][method]
 
-			
+
 			next = (final) ->
 				log hook.green + '::' + method.green + ' - ', 'running final method', final
 				if final instanceof Error
@@ -53,7 +53,7 @@ module.exports = class Request
 			for func in funcs
 
 				next = _.bind(runFunction, @, func, next, args)
-			
+
 			next(mod)
 
 		return deferred.promise
@@ -85,7 +85,7 @@ module.exports = class Request
 	$getPaginationConfig:(req) ->
 		data = req.query
 
-		result = 
+		result =
 			perPage:data.perPage
 			page:data.page
 			sortField:data.sortField
@@ -169,7 +169,7 @@ module.exports = class Request
 					query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
 					deferred.resolve(query)
 				else
-					
+
 					@$modelClass.countQ(filter)
 					.then (count) =>
 						res.set('Time-PostCount', (new Date()).toISOString())
@@ -279,7 +279,7 @@ module.exports = class Request
 		resolvedCount = 0
 		rejectedCount = 0
 		Q.allSettled(promises).then (results) =>
-			
+
 			for result in results
 				if result.state is 'fulfilled'
 					resolvedCount++
@@ -292,7 +292,7 @@ module.exports = class Request
 
 			if resolvedCount and !rejectedCount
 				res.status(201)
-			else if !resolvedCount 
+			else if !resolvedCount
 				res.status(results[0].reason.code)
 			else
 				res.status(207)

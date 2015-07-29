@@ -21,11 +21,11 @@
     "dot-component": "~0.1.0",
     "express": "3.4.3",
     "hooks": "~0.3.2",
+    "lodash": "^3.10.0",
     "minimatch": "^1.0.0",
     "moment": "~2.6.0",
     "mongoose-q": "0.0.13",
-    "q": "*",
-    "underscore": "~1.5.2"
+    "q": "*"
   },
   "author": {
     "name": "Jason Raede",

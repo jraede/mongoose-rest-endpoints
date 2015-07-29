@@ -1,15 +1,14 @@
 module.exports = class HttpError
-	@forge:(msg, code) ->
-		if @listeners[code]?
-			for listener in @listeners[code]
-				listener(msg)
-		return new @(msg, code)
 	constructor:(msg, code) ->
 		@code = code
 		@message = msg
 
+	@forge:(msg, code) ->
+		if @listeners[code]?
+			listener(msg) for listener in @listeners[code]
+		return new @(msg, code)
+
 	@listeners:{}
+
 	@listen:(code, callback) ->
-		if !@listeners[code]?
-			@listeners[code] = []
-		@listeners[code].push(callback)
+		(@listeners[code] ?= []).push(callback)

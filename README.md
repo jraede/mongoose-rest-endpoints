@@ -112,7 +112,7 @@ By default, endpoints paginate results at 50 per page, ordered by the `_id` fiel
 To set the pagination defaults to something else, call the `paginate` method:
 
 ```javascript
-endpoint.paginate(resultsPerPage, sortField)
+endpoint.paginate(resultsPerPage, sortField, sortDirection)
 ```
 
 Defaults are overridden by query variables.

@@ -169,11 +169,12 @@ module.exports = class Request
 
 				if @$endpoint.options.pagination.ignoreCount
 					config = @$getPaginationConfig(req)
-					console.log config.sortField
-					console.log config.sortDirection
+				
+					if config.sortDirection is -1
+						config.sortField = '-' + config.sortField
 					# sorting =
 					# 	config.sortField: config.sortDirection
-					query.sort(config.sortField, config.sortDirection).skip((config.page - 1) * config.perPage).limit(config.perPage)
+					query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
 					deferred.resolve(query)
 				else
 					
@@ -184,9 +185,9 @@ module.exports = class Request
 						res.setHeader('Record-Count', count.toString())
 
 						config = @$getPaginationConfig(req)
-						# sorting =
-						# 	config.sortField: config.sortDirection
-						query.sort(config.sortField, config.sortDirection).skip((config.page - 1) * config.perPage).limit(config.perPage)
+						if config.sortDirection is -1
+							config.sortField = '-' + config.sortField
+						query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
 						deferred.resolve(query)
 					.fail(deferred.reject).done()
 			else

@@ -89,6 +89,7 @@ module.exports = class Request
 			perPage:data.perPage
 			page:data.page
 			sortField:data.sortField
+			sortDirection:data.sortDirection
 		result.page = parseInt(data.page)
 		if !result.page? or isNaN(result.page) or result.page < 1
 			result.page = 1
@@ -96,6 +97,8 @@ module.exports = class Request
 			result.perPage = @$endpoint.options.pagination.perPage
 		if !result.sortField?
 			result.sortField = @$endpoint.options.pagination.sortField
+		if !result.sortDirection?
+			result.sortDirection = @$endpoint.options.pagination.sortDirection
 
 		return result
 	fetch:(req, res) ->
@@ -166,7 +169,11 @@ module.exports = class Request
 
 				if @$endpoint.options.pagination.ignoreCount
 					config = @$getPaginationConfig(req)
-					query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
+					console.log config.sortField
+					console.log config.sortDirection
+					# sorting =
+					# 	config.sortField: config.sortDirection
+					query.sort(config.sortField, config.sortDirection).skip((config.page - 1) * config.perPage).limit(config.perPage)
 					deferred.resolve(query)
 				else
 					
@@ -177,7 +184,9 @@ module.exports = class Request
 						res.setHeader('Record-Count', count.toString())
 
 						config = @$getPaginationConfig(req)
-						query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
+						# sorting =
+						# 	config.sortField: config.sortDirection
+						query.sort(config.sortField, config.sortDirection).skip((config.page - 1) * config.perPage).limit(config.perPage)
 						deferred.resolve(query)
 					.fail(deferred.reject).done()
 			else

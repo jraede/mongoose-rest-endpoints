@@ -22,6 +22,7 @@ module.exports = class Endpoint
 			pagination:
 				perPage:50
 				sortField:'_id'
+				sortDirection:1
 			populate:[]
 
 
@@ -199,9 +200,10 @@ module.exports = class Endpoint
 	 * @param {String} sortField
 	 * @return {self} for chaining
 	###
-	paginate:(perPage, sortField) ->
+	paginate:(perPage, sortField, sortDirection = 1) ->
 		@options.pagination.perPage = perPage
 		@options.pagination.sortField = sortField
+		@options.pagination.sortDirection = sortDirection
 
 		return @
 

@@ -178,7 +178,7 @@ module.exports = class Request
 					deferred.resolve(query)
 				else
 					
-					@$modelClass.countQ(filter)
+					@$modelClass.count(filter)
 					.then (count) =>
 						res.set('Time-PostCount', (new Date()).toISOString())
 						log 'There are ' + count.toString().yellow + ' total documents that fit filter'
@@ -234,7 +234,7 @@ module.exports = class Request
 
 		@$runHook('pre_save', 'post', req, model).then (model) =>
 
-			return model.saveQ()
+			return model.save()
 		.then (model) =>
 			log('Finished save. Populating')
 			return @$populateDocument(model)
@@ -258,7 +258,7 @@ module.exports = class Request
 		deferred = Q.defer()
 		model = new @$modelClass(obj)
 		@$runHook('pre_save', 'bulkpost', req, model).then (data) =>
-			return model.saveQ()
+			return model.save()
 		.then (model) =>
 			deferred.resolve()
 		.fail (err) =>
@@ -358,7 +358,7 @@ module.exports = class Request
 				model.set(req.body)
 				return @$runHook('pre_save', 'put', req, model).then (model) =>
 			.then =>
-				return model.saveQ()
+				return model.save()
 			.then (model) =>
 				return @$populateDocument(model)
 			.then (model) =>
@@ -425,7 +425,7 @@ module.exports = class Request
 					res.status(500).send()
 				.done()
 			@$runHook('post_retrieve', 'delete', req, model).then (model) =>
-				return model.removeQ()
+				return model.remove()
 			.then =>
 				res.status(200).send()
 			.fail (err) =>

@@ -175,7 +175,7 @@ module.exports = class Request
 					# sorting =
 					# 	config.sortField: config.sortDirection
 					query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
-					deferred.resolve(query)
+					deferred.resolve({query})
 				else
 					
 					@$modelClass.count(filter)
@@ -188,10 +188,10 @@ module.exports = class Request
 						if config.sortDirection is -1
 							config.sortField = '-' + config.sortField
 						query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
-						deferred.resolve(query)
+						deferred.resolve({query})
 					.fail(deferred.reject).done()
 			else
-				deferred.resolve(query)
+				deferred.resolve({query})
 
 			return deferred.promise
 
@@ -200,7 +200,7 @@ module.exports = class Request
 			@$populateQuery(query)
 			# Handle pagination
 			return applyPagination(query, filter)
-		.then (query) =>
+		.then ({query}) =>
 			if @$endpoint.options.limitFields?
 				query.select(@$endpoint.options.limitFields.join(' '))
 			return query.exec()

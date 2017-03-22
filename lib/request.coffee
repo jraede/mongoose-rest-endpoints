@@ -129,7 +129,7 @@ module.exports = class Request
 			filter._id = id
 			query = @$modelClass.findOne(filter)
 			@$populateQuery(query)
-			return query.execQ()
+			return query.exec()
 		.then (model) =>
 			if !model
 				log 'ERROR:'.red, 'Object not found'
@@ -203,7 +203,7 @@ module.exports = class Request
 		.then (query) =>
 			if @$endpoint.options.limitFields?
 				query.select(@$endpoint.options.limitFields.join(' '))
-			return query.execQ()
+			return query.exec()
 		.then (response) =>
 			return @$runHook('post_retrieve', 'list', req, response)
 		.then (response) =>
@@ -342,7 +342,7 @@ module.exports = class Request
 			query = @$modelClass.findOne(filter)
 
 			@$populateQuery(query)
-			return query.execQ()
+			return query.exec()
 		.then (model) =>
 			if !model
 				log 'ERROR:'.red, 'No model found (404)'
@@ -413,7 +413,7 @@ module.exports = class Request
 			query = @$modelClass.findOne(filter)
 
 			@$populateQuery(query)
-			return query.execQ()
+			return query.exec()
 		.then (model) =>
 			if !model
 				log 'ERROR:'.red, 'No model found (404)'

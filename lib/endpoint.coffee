@@ -1,4 +1,4 @@
-mongoose = require('mongoose-q')()
+mongoose = require('mongoose')
 _ = require('underscore')
 Q = require('q')
 log = require('./log')

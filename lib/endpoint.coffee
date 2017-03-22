@@ -1,6 +1,7 @@
-mongoose = require('mongoose')
-_ = require('underscore')
 Q = require('q')
+mongoose = require('mongoose')
+mongoose.Promise = Q.Promise;
+_ = require('underscore')
 log = require('./log')
 request = require('./request')
 minimatch = require('minimatch')

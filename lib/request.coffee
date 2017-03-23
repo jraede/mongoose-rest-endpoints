@@ -86,7 +86,7 @@ module.exports = class Request
 		data = req.query
 
 		result = 
-			perPage:parseInt(data.perPage, 10)
+			perPage: data.perPage && parseInt(data.perPage, 10)
 			page:data.page
 			sortField:data.sortField
 			sortDirection:data.sortDirection

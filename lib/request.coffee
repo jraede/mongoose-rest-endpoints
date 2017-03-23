@@ -86,11 +86,11 @@ module.exports = class Request
 		data = req.query
 
 		result = 
-			perPage:data.perPage
+			perPage:parseInt(data.perPage, 10)
 			page:data.page
 			sortField:data.sortField
 			sortDirection:data.sortDirection
-		result.page = parseInt(data.page)
+		result.page = parseInt(data.page, 10)
 		if !result.page? or isNaN(result.page) or result.page < 1
 			result.page = 1
 		if !result.perPage?

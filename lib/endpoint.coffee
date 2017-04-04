@@ -1,6 +1,7 @@
-mongoose = require('mongoose-q')()
-_ = require('underscore')
 Q = require('q')
+mongoose = require('mongoose')
+mongoose.Promise = Q.Promise;
+_ = require('underscore')
 log = require('./log')
 request = require('./request')
 minimatch = require('minimatch')
@@ -22,6 +23,7 @@ module.exports = class Endpoint
 			pagination:
 				perPage:50
 				sortField:'_id'
+				sortDirection:1
 			populate:[]
 
 
@@ -199,9 +201,10 @@ module.exports = class Endpoint
 	 * @param {String} sortField
 	 * @return {self} for chaining
 	###
-	paginate:(perPage, sortField) ->
+	paginate:(perPage, sortField, sortDirection = 1) ->
 		@options.pagination.perPage = perPage
 		@options.pagination.sortField = sortField
+		@options.pagination.sortDirection = sortDirection
 
 		return @
 

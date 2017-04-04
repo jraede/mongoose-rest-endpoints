@@ -86,16 +86,19 @@ module.exports = class Request
 		data = req.query
 
 		result = 
-			perPage:data.perPage
+			perPage: data.perPage && parseInt(data.perPage, 10)
 			page:data.page
 			sortField:data.sortField
-		result.page = parseInt(data.page)
+			sortDirection:data.sortDirection
+		result.page = parseInt(data.page, 10)
 		if !result.page? or isNaN(result.page) or result.page < 1
 			result.page = 1
 		if !result.perPage?
 			result.perPage = @$endpoint.options.pagination.perPage
 		if !result.sortField?
 			result.sortField = @$endpoint.options.pagination.sortField
+		if !result.sortDirection?
+			result.sortDirection = @$endpoint.options.pagination.sortDirection
 
 		return result
 	fetch:(req, res) ->
@@ -126,7 +129,7 @@ module.exports = class Request
 			filter._id = id
 			query = @$modelClass.findOne(filter)
 			@$populateQuery(query)
-			return query.execQ()
+			return query.exec()
 		.then (model) =>
 			if !model
 				log 'ERROR:'.red, 'Object not found'
@@ -166,22 +169,29 @@ module.exports = class Request
 
 				if @$endpoint.options.pagination.ignoreCount
 					config = @$getPaginationConfig(req)
+				
+					if config.sortDirection is -1
+						config.sortField = '-' + config.sortField
+					# sorting =
+					# 	config.sortField: config.sortDirection
 					query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
-					deferred.resolve(query)
+					deferred.resolve({query})
 				else
 					
-					@$modelClass.countQ(filter)
+					@$modelClass.count(filter)
 					.then (count) =>
 						res.set('Time-PostCount', (new Date()).toISOString())
 						log 'There are ' + count.toString().yellow + ' total documents that fit filter'
 						res.setHeader('Record-Count', count.toString())
 
 						config = @$getPaginationConfig(req)
+						if config.sortDirection is -1
+							config.sortField = '-' + config.sortField
 						query.sort(config.sortField).skip((config.page - 1) * config.perPage).limit(config.perPage)
-						deferred.resolve(query)
+						deferred.resolve({query})
 					.fail(deferred.reject).done()
 			else
-				deferred.resolve(query)
+				deferred.resolve({query})
 
 			return deferred.promise
 
@@ -190,10 +200,10 @@ module.exports = class Request
 			@$populateQuery(query)
 			# Handle pagination
 			return applyPagination(query, filter)
-		.then (query) =>
+		.then ({query}) =>
 			if @$endpoint.options.limitFields?
 				query.select(@$endpoint.options.limitFields.join(' '))
-			return query.execQ()
+			return query.exec()
 		.then (response) =>
 			return @$runHook('post_retrieve', 'list', req, response)
 		.then (response) =>
@@ -224,7 +234,7 @@ module.exports = class Request
 
 		@$runHook('pre_save', 'post', req, model).then (model) =>
 
-			return model.saveQ()
+			return model.save()
 		.then (model) =>
 			log('Finished save. Populating')
 			return @$populateDocument(model)
@@ -248,7 +258,7 @@ module.exports = class Request
 		deferred = Q.defer()
 		model = new @$modelClass(obj)
 		@$runHook('pre_save', 'bulkpost', req, model).then (data) =>
-			return model.saveQ()
+			return model.save()
 		.then (model) =>
 			deferred.resolve()
 		.fail (err) =>
@@ -332,7 +342,7 @@ module.exports = class Request
 			query = @$modelClass.findOne(filter)
 
 			@$populateQuery(query)
-			return query.execQ()
+			return query.exec()
 		.then (model) =>
 			if !model
 				log 'ERROR:'.red, 'No model found (404)'
@@ -348,7 +358,7 @@ module.exports = class Request
 				model.set(req.body)
 				return @$runHook('pre_save', 'put', req, model).then (model) =>
 			.then =>
-				return model.saveQ()
+				return model.save()
 			.then (model) =>
 				return @$populateDocument(model)
 			.then (model) =>
@@ -403,7 +413,7 @@ module.exports = class Request
 			query = @$modelClass.findOne(filter)
 
 			@$populateQuery(query)
-			return query.execQ()
+			return query.exec()
 		.then (model) =>
 			if !model
 				log 'ERROR:'.red, 'No model found (404)'
@@ -415,7 +425,7 @@ module.exports = class Request
 					res.status(500).send()
 				.done()
 			@$runHook('post_retrieve', 'delete', req, model).then (model) =>
-				return model.removeQ()
+				return model.remove()
 			.then =>
 				res.status(200).send()
 			.fail (err) =>

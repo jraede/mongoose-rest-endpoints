@@ -19,12 +19,12 @@
     "coffee-script": "^1.8.0",
     "colors": "^0.6.2",
     "dot-component": "~0.1.0",
-    "express": "3.4.3",
+    "express": "^4.15.2",
     "hooks": "~0.3.2",
     "minimatch": "^1.0.0",
     "moment": "~2.6.0",
     "mongoose": "^4.9.1",
-    "q": "*",
+    "q": "^1.5.0",
     "underscore": "~1.5.2"
   },
   "author": {
@@ -46,6 +46,5 @@
     "grunt-exec": "~0.4.3",
     "grunt-sed": "~0.1.1",
     "semver": "~2.2.1",
-    "moment": "~2.5.1"
   }
 }
